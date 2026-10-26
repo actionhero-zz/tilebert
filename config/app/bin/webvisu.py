@@ -282,7 +282,7 @@ log = logging.getLogger("loxpanel.webvisu")
 # kennt sie nicht). Bei jedem Release-Bump hier mitziehen - einziger
 # zuverlaessiger Weg zu pruefen, ob ein Update den Container tatsaechlich neu
 # gebaut hat (z.B. bei einem haengenden Docker-Build-Cache).
-APP_VERSION = "0.20.45"
+APP_VERSION = "0.20.46"
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
@@ -5254,7 +5254,7 @@ class App:
                 return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
-                return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
+                return {"ok": False, "error": "adb nicht freigegeben. Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“."}
             # -g: App-Rechte (Kamera, Mikrofon, Speicher ...) gleich erteilen; alte
             # Android-Versionen (< 6) kennen -g nicht -> ohne wiederholen.
             code, out = await _adb("-s", target, "install", "-r", "-g", str(apk), timeout=240)
@@ -5282,7 +5282,7 @@ class App:
                 return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
-                return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
+                return {"ok": False, "error": "adb nicht freigegeben. Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“."}
             if on is not None:
                 code, out = await _adb("-s", target, "shell", "settings", "put", "system",
                                        "sound_effects_enabled", "1" if on else "0", timeout=10)
@@ -5313,7 +5313,7 @@ class App:
                 return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
-                return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
+                return {"ok": False, "error": "adb nicht freigegeben. Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“."}
             if auto is True:
                 code, out = await _adb("-s", target, "shell", "settings", "put", "system", "screen_brightness_mode", "1", timeout=10)
                 if code != 0:
@@ -5370,7 +5370,7 @@ class App:
                 return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
-                return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
+                return {"ok": False, "error": "adb nicht freigegeben. Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“."}
             if action == "reboot":
                 code, out = await _adb("-s", target, "reboot", timeout=15)
                 log.info("Geraet %s (%s) per adb neu gestartet: %s", device, target, out or code)
@@ -5468,7 +5468,7 @@ class App:
                 return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
-                return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
+                return {"ok": False, "error": "adb nicht freigegeben. Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“."}
             for title, cmd in steps:
                 code, out = await _adb("-s", target, "shell", *cmd, timeout=40)
                 parts.append(f"\n===== {title} =====\n{out[-400000:] if out else '(leer)'}")
@@ -13115,7 +13115,7 @@ async def api_device_ip(request: web.Request) -> web.Response:
             raise ValueError("ip")
         ip = str(a)
     except ValueError:
-        return web.json_response({"ok": False, "error": "Keine gültige IP-Adresse (IPv4)."}, status=400)
+        return web.json_response({"ok": False, "error": "Das ist keine gültige IP-Adresse. Beispiel: 192.168.1.77."}, status=400)
     if not app.set_device_ip(name, ip):
         return web.json_response({"ok": False, "error": "Gerät noch nicht erkannt. Öffne das Panel einmal am Gerät oder lege es unter „Gerät hinzufügen“ mit IP an."}, status=404)
     return web.json_response({"ok": True, "ip": ip})
@@ -13662,7 +13662,7 @@ def _log_exc_limited(key, msg: str, *args) -> None:
 def _connect_err(out: str, default: str) -> str:
     """Fehlertext zu 'adb connect': neuer Server = neuer adb-Schluessel -> Gerät fragt erst 'USB-Debugging zulassen?'."""
     if re.search(r"authenticat|unauthorized", out or "", re.I):
-        return "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“ mit „Immer erlauben“ und versuche es noch einmal."
+        return "adb nicht freigegeben. Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“ und versuche es noch einmal."
     return default
 
 
@@ -13835,7 +13835,7 @@ async def api_panel_launcher(request: web.Request) -> web.Response:
         code, out = await _adb("-s", target, "get-state", timeout=10)
         if not step("Freigabe", code, out, ok=(out == "device")):
             return web.json_response({"ok": False, "steps": steps,
-                                      "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“ mit „Immer erlauben“ und klicke noch einmal."})
+                                      "error": "adb nicht freigegeben. Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“ und versuche es noch einmal."})
         if not shelly:                       # war der Launcher bisher Startbildschirm? Dann ist es ein Shelly-Aufbau
             code, out = await _adb("-s", target, "shell", "cmd", "package", "resolve-activity", "--brief",
                                    "-a", "android.intent.action.MAIN", "-c", "android.intent.category.HOME", timeout=15)

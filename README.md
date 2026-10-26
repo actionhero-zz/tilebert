@@ -29,6 +29,7 @@ installierten Original-LoxPanel-Version**, ohne Kollision:
 
 ## Eigene Funktionen dieses Forks
 
+- **Verständlichere Texte bei „Verbindung“ (0.20.46)** — Gerätedetail: Adressfeld, Umzugs-Hinweis, adb-Freigabe und Fehlermeldungen erklären jetzt die Situation statt der Technik (DE/EN).
 - **Umzug auf anderen LoxBerry, Energiefluss-Punkte (0.20.45)** — Nach Umzug/Portwechsel: Gerätedetail zeigt die zuletzt bekannte IP (änderbar), „TbViewer installieren“ setzt die neue Server-Adresse per adb, verständlicher Hinweis zur adb-Freigabe; am Gerät öffnen Fehlerseite („Adresse ändern“) und „Einstellungen“ die Adresseingabe statt zurückzuspringen (TbViewer 5.18). Energiefluss: Netz-Punkte wieder gleich groß und mittig auf der Linie.
 - **Nachts weckt nur „Licht an“ (0.20.44)** — Im Nachtmodus löst nur noch steigende Helligkeit (Licht an) eine Präsenz aus; Licht aus, Abdunkeln und Abschatten nicht mehr (TbViewer 5.17).
 - **Präsenz per Licht empfindlicher, weniger Hänger (0.20.43)** — Lichtsensor erkennt nachts Licht an/aus und Vorbeigehen zuverlässig, ohne sich durch die eigene Displayhelligkeit selbst auszulösen (TbViewer 5.16; Shelly nutzt jetzt Helligkeitsstufen). Die Uhr rechnet nur noch zum Minutenwechsel (deutlich weniger Rechenlast am Shelly), Diagnose-Log nennt die Quellen von Hängern. Datum in der Wettervorschau wird bei 480×480 nicht mehr abgeschnitten.

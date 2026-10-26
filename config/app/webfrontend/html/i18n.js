@@ -1065,21 +1065,22 @@
       'IP-Adresse des Geräts unbekannt. Öffne das Panel einmal am Gerät.':
         'IP address of the device unknown. Open the panel once on the device.',
       'Verbindung': 'Connection',
-      'Gerät offline. Ist dieser Server umgezogen (neuer LoxBerry oder anderer Port), kennt das Gerät die neue Adresse nicht. Installiere TbViewer erneut („TbViewer installieren“ setzt die aktuelle Adresse per ADB), oder tippe am Gerät 5× aufs Display, dann „Einstellungen“ bzw. „Adresse ändern“.':
-        'Device offline. If this server has moved (new LoxBerry or different port), the device does not know the new address. Install TbViewer again ("Install TbViewer" sets the current address via ADB), or tap the device display 5 times, then "Settings" or "Change address".',
-      'Beim ersten Zugriff dieses Servers fragt das Gerät „USB-Debugging zulassen?“. Bestätige mit „Immer erlauben“.':
-        'On first access from this server the device asks "Allow USB debugging?". Confirm with "Always allow".',
-      'Keine gültige IP-Adresse (IPv4)': 'Not a valid IP address (IPv4)',
+      'Gerät nicht verbunden. Ist tilebert umgezogen (neuer LoxBerry oder anderer Port), kennt das Gerät die neue Adresse nicht. Tippe auf „TbViewer installieren“, dann übernimmt es die Adresse. Oder tippe am Gerät 5× aufs Display und wähle „Einstellungen“ oder „Adresse ändern“.':
+        'Device not connected. If tilebert has moved (new LoxBerry or different port), the device does not know the new address. Tap "Install TbViewer" and it takes over the address. Or tap the device display 5 times and choose "Settings" or "Change address".',
+      'Danach fragt das Gerät einmal „USB-Debugging zulassen?“. Tippe dort auf „Immer erlauben“.':
+        'Then the device asks once "Allow USB debugging?". Tap "Always allow" there.',
+      'Das ist keine gültige IP-Adresse. Beispiel: 192.168.1.77':
+        'That is not a valid IP address. Example: 192.168.1.77',
       'Gerät noch nicht erkannt. Öffne das Panel einmal am Gerät oder lege es unter „Gerät hinzufügen“ mit IP an': 'Device not detected yet. Open the panel on the device once or add it under "Add device" with its IP',
-      'IP speichern': 'Save IP',
+      'Adresse speichern': 'Save address',
       'IP-Adresse gespeichert.': 'IP address saved.',
       'IP-Adresse nicht gespeichert.': 'IP address not saved.',
-      'Zuletzt bekannte IP. Gilt für Installation und Protokoll, solange das Gerät offline ist.':
-        'Last known IP. Used for installation and log while the device is offline.',
-      'IP-Adresse des Geräts. Online wird sie automatisch erkannt.':
-        'IP address of the device. When online it is detected automatically.',
-      'Dieses Gerät kennt die neue Adresse dieses Servers noch nicht (zuletzt: {a}). Installiere TbViewer erneut („TbViewer installieren“ setzt die aktuelle Adresse per ADB), oder tippe am Gerät 5× aufs Display, dann „Einstellungen“ bzw. „Adresse ändern“.':
-        'This device does not know the new address of this server yet (last: {a}). Install TbViewer again ("Install TbViewer" sets the current address via ADB), or tap the device display 5 times, then "Settings" or "Change address".',
+      'Zuletzt bekannte Adresse. Damit erreicht tilebert das Gerät auch ohne Verbindung, z. B. für „TbViewer installieren“ und „Protokoll holen“.':
+        'Last known address. tilebert uses it to reach the device even without a connection, e.g. for "Install TbViewer" and "Get log".',
+      'tilebert erkennt die Adresse selbst, solange das Gerät verbunden ist. Trage sie nur ein, wenn das Gerät nicht verbunden ist.':
+        'tilebert detects the address by itself while the device is connected. Enter it only if the device is not connected.',
+      'Das Gerät kennt die neue Adresse von tilebert noch nicht (zuletzt: {a}). Tippe auf „TbViewer installieren“, dann übernimmt es die Adresse. Oder tippe am Gerät 5× aufs Display und wähle „Einstellungen“ oder „Adresse ändern“.':
+        'The device does not know tilebert\'s new address yet (last: {a}). Tap "Install TbViewer" and it takes over the address. Or tap the device display 5 times and choose "Settings" or "Change address".',
       'Richte die Anzeige ein …': 'Setting up the display …',
       'TbViewer eingerichtet. Das Gerät startet neu.': 'TbViewer set up. The device is restarting.',
       'Noch kein Gerät bekannt. Öffne das Panel einmal am Gerät mit ?device=<name> oder installiere den Agent.':
@@ -1159,8 +1160,8 @@
       'Prüfe die Netzwerkverbindung und ob tilebert läuft.':
         'Check the network connection and whether tilebert is running.',
       'ADB ist nicht freigegeben.': 'ADB is not approved.',
-      'Bestätige am Gerät „USB-Debugging zulassen“ und versuche es noch einmal.':
-        'Confirm "Allow USB debugging" on the device and try again.',
+      'Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“ und versuche es noch einmal.':
+        'On the device, tap "Always allow" at "Allow USB debugging?" and try again.',
       'Das Gerät ist offline.': 'The device is offline.',
       'Prüfe Strom und WLAN, bei Android außerdem „ADB über WLAN“.':
         'Check power and WLAN, and for Android also "ADB over WLAN".',
@@ -1244,8 +1245,8 @@
         'IP address of the device unknown. Open the panel once on the device.',
       '"Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?"':
         'Device not reachable via adb. Is ADB over WLAN switched on at the device?',
-      '"adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."':
-        'adb not approved. Confirm "Allow USB debugging" on the device.',
+      '"adb nicht freigegeben. Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“."':
+        'adb not approved. On the device, tap "Always allow" at "Allow USB debugging?".',
       'Querformat, zwei Hälften nebeneinander (Panel-Format „Zwei Hälften“).':
         'Landscape, two halves side by side (panel format "Two halves").',
       'TbViewer: Gerät hinzufügen → Shelly oder Android-Tablet.': 'TbViewer: Add device → Shelly or Android tablet.',

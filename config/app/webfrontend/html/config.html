@@ -5593,7 +5593,7 @@ function fehlerGrund(src){
   if((typeof TypeError!=='undefined'&&src instanceof TypeError)||/failed to fetch|networkerror|load failed|network request/.test(low))
     return T('Der Server ist nicht erreichbar.')+' '+T('Prüfe die Netzwerkverbindung und ob tilebert läuft.');
   if(/adb nicht freigegeben|unauthorized/.test(low))
-    return T('ADB ist nicht freigegeben.')+' '+T('Bestätige am Gerät „USB-Debugging zulassen“ und versuche es noch einmal.');
+    return T('ADB ist nicht freigegeben.')+' '+T('Tippe am Gerät bei „USB-Debugging zulassen?“ auf „Immer erlauben“ und versuche es noch einmal.');
   if(/nicht per adb erreichbar|adb nicht erreichbar|nicht online|nicht erreicht|nicht erreichbar|offline/.test(low))
     return T('Das Gerät ist offline.')+' '+T('Prüfe Strom und WLAN, bei Android außerdem „ADB über WLAN“.');
   if(/ung(ü|ue)ltig|nötig|noetig|(name|host|adresse|passwort|feld|text|device) fehlt|unbekannt|zu groß|nicht unterstützt|muss mit/.test(low))
@@ -6722,9 +6722,9 @@ function gdHTML(n){
   if(d.display) ac+=b('dispoff',T('Display ausschalten'))+b('dispon',T('Display einschalten'));
   const dsrv=(l.detected&&l.detected.srv)||'', moved=!up&&!!l.detected&&dsrv!==location.host&&!npLocalHost(location.host);
   const ipbox='<div class="gds"><h3>'+T('Verbindung')+'</h3><div class="gdrn gdip"><input type="text" class="gdip_in" inputmode="decimal" autocomplete="off" placeholder="192.168.1.77" value="'+esc(l.ip||'')+'" aria-label="'+T('IP-Adresse des Geräts')+'">'+
-    '<button type="button" class="btn sm ghost gdip_go">'+T('IP speichern')+'</button></div>'+
-    '<div class="dhint">'+(l.ipLast?T('Zuletzt bekannte IP. Gilt für Installation und Protokoll, solange das Gerät offline ist.'):T('IP-Adresse des Geräts. Online wird sie automatisch erkannt.'))+'</div>'+
-    (moved?'<div class="dhint'+(dsrv?' bad':'')+'" role="status">'+(dsrv?T('Dieses Gerät kennt die neue Adresse dieses Servers noch nicht (zuletzt: {a}). Installiere TbViewer erneut („TbViewer installieren“ setzt die aktuelle Adresse per ADB), oder tippe am Gerät 5× aufs Display, dann „Einstellungen“ bzw. „Adresse ändern“.').replace('{a}',esc(dsrv)):T('Gerät offline. Ist dieser Server umgezogen (neuer LoxBerry oder anderer Port), kennt das Gerät die neue Adresse nicht. Installiere TbViewer erneut („TbViewer installieren“ setzt die aktuelle Adresse per ADB), oder tippe am Gerät 5× aufs Display, dann „Einstellungen“ bzw. „Adresse ändern“.'))+' '+T('Beim ersten Zugriff dieses Servers fragt das Gerät „USB-Debugging zulassen?“. Bestätige mit „Immer erlauben“.')+'</div>':'')+'</div>';
+    '<button type="button" class="btn sm ghost gdip_go">'+T('Adresse speichern')+'</button></div>'+
+    '<div class="dhint">'+(l.ipLast?T('Zuletzt bekannte Adresse. Damit erreicht tilebert das Gerät auch ohne Verbindung, z. B. für „TbViewer installieren“ und „Protokoll holen“.'):T('tilebert erkennt die Adresse selbst, solange das Gerät verbunden ist. Trage sie nur ein, wenn das Gerät nicht verbunden ist.'))+'</div>'+
+    (moved?'<div class="dhint'+(dsrv?' bad':'')+'" role="status">'+(dsrv?T('Das Gerät kennt die neue Adresse von tilebert noch nicht (zuletzt: {a}). Tippe auf „TbViewer installieren“, dann übernimmt es die Adresse. Oder tippe am Gerät 5× aufs Display und wähle „Einstellungen“ oder „Adresse ändern“.').replace('{a}',esc(dsrv)):T('Gerät nicht verbunden. Ist tilebert umgezogen (neuer LoxBerry oder anderer Port), kennt das Gerät die neue Adresse nicht. Tippe auf „TbViewer installieren“, dann übernimmt es die Adresse. Oder tippe am Gerät 5× aufs Display und wähle „Einstellungen“ oder „Adresse ändern“.'))+' '+T('Danach fragt das Gerät einmal „USB-Debugging zulassen?“. Tippe dort auf „Immer erlauben“.')+'</div>':'')+'</div>';
   h+='<aside class="gdside">'+ipbox+'<div class="gds"><h3>'+T('Aktionen')+'</h3><div class="gdacts" data-ip="'+esc(agIp)+'" data-devip="'+esc(l.ip||'')+'">'+ac+'</div></div>'+
     (has('fullyinstall')?'<div class="gds"><h3>TbViewer</h3>'+tbvHTML(n,tb)+'</div>':'')+
     '<div class="gdtoast"></div>'+
