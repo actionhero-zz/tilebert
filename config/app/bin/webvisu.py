@@ -282,7 +282,7 @@ log = logging.getLogger("loxpanel.webvisu")
 # kennt sie nicht). Bei jedem Release-Bump hier mitziehen - einziger
 # zuverlaessiger Weg zu pruefen, ob ein Update den Container tatsaechlich neu
 # gebaut hat (z.B. bei einem haengenden Docker-Build-Cache).
-APP_VERSION = "0.20.46"
+APP_VERSION = "0.20.47"
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
@@ -10540,7 +10540,7 @@ class App:
                     if scv is not None and 0 <= scv <= 1.0001 and scv != 0:
                         scv *= 100
                     ok = scv is not None and 0 <= scv <= 100 and (p is None or float(p or 0) > 0)
-                    kp.append({"l": "Eigenverbrauch", "v": self._fmt_num(scv, "%.0f %%") if ok else "–"})
+                    kp.append({"l": "PV-Eigenverbrauch", "v": self._fmt_num(scv, "%.0f %%") if ok else "–"})
                 blocks = [{"k": "eflow", "e": eb}] + ([{"k": "kpis", "items": kp[:3]}] if kp else [])
             else:
                 blocks = [{"k": "hero", "icon": "central"},
