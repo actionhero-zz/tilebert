@@ -1064,6 +1064,22 @@
         'Requirement: ADB over WLAN (port 5555) is switched on. The first time, the device asks "Allow USB debugging?". Confirm with "Always allow" and start the action again.',
       'IP-Adresse des Geräts unbekannt. Öffne das Panel einmal am Gerät.':
         'IP address of the device unknown. Open the panel once on the device.',
+      'Verbindung': 'Connection',
+      'Gerät offline. Ist dieser Server umgezogen (neuer LoxBerry oder anderer Port), kennt das Gerät die neue Adresse nicht. Installiere TbViewer erneut („TbViewer installieren“ setzt die aktuelle Adresse per ADB), oder tippe am Gerät 5× aufs Display, dann „Einstellungen“ bzw. „Adresse ändern“.':
+        'Device offline. If this server has moved (new LoxBerry or different port), the device does not know the new address. Install TbViewer again ("Install TbViewer" sets the current address via ADB), or tap the device display 5 times, then "Settings" or "Change address".',
+      'Beim ersten Zugriff dieses Servers fragt das Gerät „USB-Debugging zulassen?“. Bestätige mit „Immer erlauben“.':
+        'On first access from this server the device asks "Allow USB debugging?". Confirm with "Always allow".',
+      'Keine gültige IP-Adresse (IPv4)': 'Not a valid IP address (IPv4)',
+      'Gerät noch nicht erkannt. Öffne das Panel einmal am Gerät oder lege es unter „Gerät hinzufügen“ mit IP an': 'Device not detected yet. Open the panel on the device once or add it under "Add device" with its IP',
+      'IP speichern': 'Save IP',
+      'IP-Adresse gespeichert.': 'IP address saved.',
+      'IP-Adresse nicht gespeichert.': 'IP address not saved.',
+      'Zuletzt bekannte IP. Gilt für Installation und Protokoll, solange das Gerät offline ist.':
+        'Last known IP. Used for installation and log while the device is offline.',
+      'IP-Adresse des Geräts. Online wird sie automatisch erkannt.':
+        'IP address of the device. When online it is detected automatically.',
+      'Dieses Gerät kennt die neue Adresse dieses Servers noch nicht (zuletzt: {a}). Installiere TbViewer erneut („TbViewer installieren“ setzt die aktuelle Adresse per ADB), oder tippe am Gerät 5× aufs Display, dann „Einstellungen“ bzw. „Adresse ändern“.':
+        'This device does not know the new address of this server yet (last: {a}). Install TbViewer again ("Install TbViewer" sets the current address via ADB), or tap the device display 5 times, then "Settings" or "Change address".',
       'Richte die Anzeige ein …': 'Setting up the display …',
       'TbViewer eingerichtet. Das Gerät startet neu.': 'TbViewer set up. The device is restarting.',
       'Noch kein Gerät bekannt. Öffne das Panel einmal am Gerät mit ?device=<name> oder installiere den Agent.':

@@ -93,7 +93,7 @@ if(!h&&d.shelly!==false){$("hm").className="p";} else {$("hm").className="s";}
 window.tbServer=function(ok,v,c){
   var tb=$("tb");
   if(ok){$("tbv").textContent=v;$("tbc").textContent=c||"";tb.className="v";}
-  else{tb.className="v st bad";tb.innerHTML="<i>!</i>"+t.bad;
+  else{tb.className="v st bad";tb.innerHTML="<i>!</i>"+t.bad;$("ad").hidden=false;
     $("srv").className="v srv bad";}
 };
 function close(){try{A.close()}catch(e){}}

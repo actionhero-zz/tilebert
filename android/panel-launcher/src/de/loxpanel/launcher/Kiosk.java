@@ -245,7 +245,7 @@ public class Kiosk extends Activity implements SensorEventListener {
     }
 
     private final Runnable retry = new Runnable() {
-        @Override public void run() { load(); }
+        @Override public void run() { if (setupWeb == null) load(); }   // waehrend der Adresseingabe nicht stoeren
     };
 
     private class Client extends WebViewClient {
@@ -261,6 +261,10 @@ public class Kiosk extends Activity implements SensorEventListener {
 
         private boolean blockMain(String u) {
             if (sameOrigin(u)) return false;
+            if (u != null && !loaded && u.startsWith("tbviewer://addr")) {   // Link der Fehlerseite (nur solange das Panel nicht geladen ist): Adresse eingeben
+                ui.post(new Runnable() { public void run() { showSetup(url()); } });
+                return true;
+            }
             // blockierte Hauptnavigation: Fehlerbild + Neuversuch der Panel-URL statt stilles Schwarz
             ui.post(new Runnable() { public void run() { if (web != null) offline(); } });
             return true;
@@ -289,7 +293,9 @@ public class Kiosk extends Activity implements SensorEventListener {
     private void offline() {
         page("<body style='margin:0;background:#0d0f1a;color:#aaa;font:18px sans-serif;display:flex;flex-direction:column;"
                 + "align-items:center;justify-content:center;gap:20px;height:100vh;text-align:center'>" + MARKE
-                + "<div>tilebert nicht erreichbar &ndash; neuer Versuch &hellip;</div></body>");
+                + "<div>" + (de() ? "tilebert nicht erreichbar &ndash; neuer Versuch &hellip;" : "tilebert not reachable &ndash; retrying &hellip;") + "</div>"
+                + "<a href='tbviewer://addr' style='color:#0d0f1a;background:#ffc145;border-radius:14px;padding:14px 26px;text-decoration:none;font-weight:bold'>"
+                + (de() ? "Adresse &auml;ndern" : "Change address") + "</a></body>");
         ui.removeCallbacks(retry);
         ui.postDelayed(retry, RETRY_MS);
     }
@@ -800,11 +806,15 @@ public class Kiosk extends Activity implements SensorEventListener {
     void infoHome() { chooseHome(); }
     void infoClose() { if (info != null) info.dismiss(); }
     /** Einstellungen am Geraet: Info schliessen, Panel zeigt sein Overlay (lpHost-Ereignis "settings"). */
-    void infoSettings() { if (info != null) info.dismiss(); js("settings", "true"); }
+    void infoSettings() {
+        if (info != null) info.dismiss();
+        if (!loaded) showSetup(url());   // Server nicht erreichbar: Panel-Overlay gibt es nicht -> Adresse eingeben
+        else js("settings", "true");
+    }
     /** Adresse aendern (nur Tablets): Info schliessen, Einrichtungsseite mit der aktuellen Adresse. */
     void infoAddr() {
         if (info != null) info.dismiss();
-        if (!StockHome.isShelly()) showSetup(url());
+        if (!StockHome.isShelly() || !loaded) showSetup(url());
     }
 
     private static String origin(String base) {

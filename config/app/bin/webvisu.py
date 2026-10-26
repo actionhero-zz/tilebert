@@ -282,7 +282,7 @@ log = logging.getLogger("loxpanel.webvisu")
 # kennt sie nicht). Bei jedem Release-Bump hier mitziehen - einziger
 # zuverlaessiger Weg zu pruefen, ob ein Update den Container tatsaechlich neu
 # gebaut hat (z.B. bei einem haengenden Docker-Build-Cache).
-APP_VERSION = "0.20.44"
+APP_VERSION = "0.20.45"
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
@@ -5018,6 +5018,9 @@ class App:
         profs: dict = {}                               # aufgeloeste Profile je pid (gleich fuer alle Geraete)
         for e in devs.values():
             e["detected"] = self.device_summary(e["name"], idx)
+            if not e["ip"] and e["detected"] and e["detected"].get("ip"):
+                e["ip"] = e["detected"]["ip"]       # offline: letzte bekannte IP (auch aus der Sicherung)
+                e["ipLast"] = True
             cfg = self.devices.get(e["name"]) if isinstance(self.devices.get(e["name"]), dict) else {}
             model = cfg.get("model") or ""
             e["kiosk_last"] = self.kiosk_last.get(e["name"], "")
@@ -5144,7 +5147,26 @@ class App:
         for a in self.agents.values():
             if a.get("name") == device and a.get("ip"):
                 return a["ip"]
-        return ""
+        return self.device_last_ip(device)
+
+    def device_last_ip(self, device: str) -> str:
+        """Zuletzt bekannte IP aus devinfo.json (ueberlebt Neustart und Sicherung/Wiederherstellung)."""
+        best = None
+        for e in self.devinfo.values():
+            if isinstance(e, dict) and e.get("name") == device and e.get("ip") and (best is None or e.get("last", 0) > best.get("last", 0)):
+                best = e
+        return str(best["ip"]) if best else ""
+
+    def set_device_ip(self, device: str, ip: str) -> bool:
+        """IP eines Geraets von Hand setzen (bei allen devinfo-Eintraegen des Namens); wirkt, solange das Geraet offline ist."""
+        n = 0
+        for e in self.devinfo.values():
+            if isinstance(e, dict) and e.get("name") == device:
+                e["ip"] = ip
+                n += 1
+        if n:
+            self._save_devinfo()
+        return n > 0
 
     def fully_source(self) -> dict:
         """Woher kommt die Fully-APK? Reihenfolge: eigene hochgeladene Datei >
@@ -5229,7 +5251,7 @@ class App:
         async with _adb_lock:
             code, out = await _adb("connect", target, timeout=15)
             if "connected" not in out or "failed" in out:
-                return {"ok": False, "error": "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?"}
+                return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
                 return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
@@ -5257,7 +5279,7 @@ class App:
         async with _adb_lock:
             code, out = await _adb("connect", target, timeout=15)
             if "connected" not in out or "failed" in out:
-                return {"ok": False, "error": "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?"}
+                return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
                 return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
@@ -5288,7 +5310,7 @@ class App:
         async with _adb_lock:
             code, out = await _adb("connect", target, timeout=15)
             if "connected" not in out or "failed" in out:
-                return {"ok": False, "error": "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?"}
+                return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
                 return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
@@ -5345,7 +5367,7 @@ class App:
         async with _adb_lock:
             code, out = await _adb("connect", target, timeout=15)
             if "connected" not in out or "failed" in out:
-                return {"ok": False, "error": "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?"}
+                return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
                 return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
@@ -5379,7 +5401,7 @@ class App:
         async with _adb_lock:
             code, out = await _adb("connect", target, timeout=15)
             if "connected" not in out or "failed" in out:
-                return {"ok": False, "error": "Gerät per adb nicht erreichbar"}
+                return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
                 return {"ok": False, "error": "adb nicht freigegeben"}
@@ -5443,7 +5465,7 @@ class App:
         async with _adb_lock:
             code, out = await _adb("connect", target, timeout=15)
             if "connected" not in out or "failed" in out:
-                return {"ok": False, "error": "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?"}
+                return {"ok": False, "error": _connect_err(out, "Gerät per adb nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")}
             code, out = await _adb("-s", target, "get-state", timeout=10)
             if out != "device":
                 return {"ok": False, "error": "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“."}
@@ -5949,7 +5971,7 @@ class App:
         e = self.devinfo.get(uid) if uid else None
         return (e or {}).get("name", "") if isinstance(e, dict) else ""
 
-    def device_detect(self, uid: str, dev: str, info: dict, ip: str) -> tuple[str, bool]:
+    def device_detect(self, uid: str, dev: str, info: dict, ip: str, srv: str = "") -> tuple[str, bool]:
         """Steckbrief eines Geraets verarbeiten. Liefert (Name, neu angelegt).
         Ohne Namen bekommt das Geraet einen Vorschlag (eindeutig gemacht); ist
         der Geraetetyp noch nicht gesetzt, wird er aus dem Steckbrief erkannt
@@ -5979,9 +6001,12 @@ class App:
         # "zuletzt gesehen" mind. taeglich speichern: sonst bliebe auf der Platte der
         # alte Stand und das Aufraeumen nach einem Neustart hielte aktive Geraete
         # fuer 90 Tage verschwunden und loeschte sie.
+        srv = srv[:120] if re.match(r"^[A-Za-z0-9.\-\[\]:]{1,120}$", srv or "") else (e.get("srv") or "")
         changed = (e.get("name") != name or e.get("info") != info or e.get("ip") != ip
-                   or now - (e.get("last") or 0) > 86400)
-        self.devinfo[uid] = {"name": name, "info": info, "ip": ip,
+                   or e.get("srv") != srv or now - (e.get("last") or 0) > 86400)
+        # srv = Adresse (Host:Port), unter der das Geraet diesen Server zuletzt erreicht hat;
+        # nach Umzug/Sicherung erkennt die Config daran, dass das Geraet die neue Adresse nicht kennt
+        self.devinfo[uid] = {"name": name, "info": info, "ip": ip, "srv": srv,
                              "first": e.get("first") or now, "last": now}
         cfg = self.devices.get(name) if isinstance(self.devices.get(name), dict) else None
         if cfg is None or not cfg.get("model"):
@@ -6093,7 +6118,7 @@ class App:
         return {"uid": uid, "os": osn, "browser": br, "hw": hw, "screen": scr,
                 "view": f"{i['vw']}×{i['vh']}" if i.get("vw") else "",
                 "cores": i.get("cores"), "mem": i.get("mem"), "touch": bool(i.get("touch")),
-                "mac": f.get("mac", ""), "pwa": bool(i.get("pwa")), "ip": e.get("ip", ""),
+                "mac": f.get("mac", ""), "pwa": bool(i.get("pwa")), "ip": e.get("ip", ""), "srv": e.get("srv", ""),
                 "first": e.get("first"), "last": e.get("last"), "guess": guess_device_model(i)}
 
     def effective_scale(self, dev: str) -> str | float:
@@ -13075,6 +13100,27 @@ async def api_device_name(request: web.Request) -> web.Response:
                               **({} if n else {"error": "Kein Gerät ohne Namen unter dieser IP gefunden."})})
 
 
+async def api_device_ip(request: web.Request) -> web.Response:
+    """IP-Adresse eines Geraets von Hand aendern: {device, ip}. Gilt fuer adb-Aktionen,
+    solange das Geraet offline ist (online zaehlt die echte Verbindungs-IP)."""
+    app: App = request.app["app"]
+    try:
+        d = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
+    name = str(d.get("device") or "").strip()
+    try:
+        a = ipaddress.ip_address(str(d.get("ip") or "").strip())
+        if a.version != 4 or a.is_unspecified or a.is_multicast or a.is_loopback:
+            raise ValueError("ip")
+        ip = str(a)
+    except ValueError:
+        return web.json_response({"ok": False, "error": "Keine gültige IP-Adresse (IPv4)."}, status=400)
+    if not app.set_device_ip(name, ip):
+        return web.json_response({"ok": False, "error": "Gerät noch nicht erkannt. Öffne das Panel einmal am Gerät oder lege es unter „Gerät hinzufügen“ mit IP an."}, status=404)
+    return web.json_response({"ok": True, "ip": ip})
+
+
 async def api_msio(request: web.Request) -> web.Response:
     """Nur lesend: Zustand eines Ein-/Ausgangs des Miniservers ueber seinen Namen
     (`?name=` -> jdev/sps/io/<name>/state) bzw. die Liste der Ein-/Ausgaenge
@@ -13613,6 +13659,13 @@ def _log_exc_limited(key, msg: str, *args) -> None:
         log.debug(msg, *args, exc_info=True)
 
 
+def _connect_err(out: str, default: str) -> str:
+    """Fehlertext zu 'adb connect': neuer Server = neuer adb-Schluessel -> Gerät fragt erst 'USB-Debugging zulassen?'."""
+    if re.search(r"authenticat|unauthorized", out or "", re.I):
+        return "adb nicht freigegeben. Bestätige am Gerät „USB-Debugging zulassen“ mit „Immer erlauben“ und versuche es noch einmal."
+    return default
+
+
 async def _adb(*args: str, timeout: float = 30) -> tuple[int, str]:
     """adb im Container ausfuehren -> (Returncode, Ausgabe). HOME zeigt auf das
     Config-Volume, dort legt adb seinen Schluessel (~/.android/adbkey) ab."""
@@ -13778,7 +13831,7 @@ async def api_panel_launcher(request: web.Request) -> web.Response:
         # "connected to" / "already connected" - sonst (z.B. "failed to connect") Abbruch.
         if not step("Verbinden", code, out, ok=("connected" in out and "failed" not in out)):
             return web.json_response({"ok": False, "steps": steps,
-                                      "error": "Gerät nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?"})
+                                      "error": _connect_err(out, "Gerät nicht erreichbar. Ist ADB über WLAN am Gerät eingeschaltet?")})
         code, out = await _adb("-s", target, "get-state", timeout=10)
         if not step("Freigabe", code, out, ok=(out == "device")):
             return web.json_response({"ok": False, "steps": steps,
@@ -14372,7 +14425,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 # Steckbrief -> Geraet erkennen/anlegen. Neu benannt: Name an die
                 # Panel-Seite, die verbindet sich damit neu (Zoom/Wach-Sperre greifen).
                 info = _clean_devinfo(data.get("info"))
-                name, _new = app.device_detect(uid, dev, info, request.remote or "")
+                name, _new = app.device_detect(uid, dev, info, request.remote or "", request.host or "")
                 if name != dev:
                     await app._send_or_drop(ws, {"t": "setdevice", "name": name})
             elif data.get("t") == "clog":
@@ -14817,6 +14870,7 @@ def main() -> None:
     a.router.add_post("/api/device/unlock", api_device_unlock)
     a.router.add_get("/api/device/adblog", api_device_adblog)
     a.router.add_post("/api/device/name", api_device_name)
+    a.router.add_post("/api/device/ip", api_device_ip)
     a.router.add_post("/api/device/delete", api_device_delete)
     a.router.add_route("*", "/api/panel/bg", api_panel_bg)
     a.router.add_get("/bg/{pid}", bg_handler)
