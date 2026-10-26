@@ -32,7 +32,7 @@ def({ id: 'QC-P03', stage: 'post', role: K, must: true, mode: 'auto', title: 'Lo
   const names = list.map(x => x.name); if (new Set(names).size !== names.length) bad.push('doppelte Namen');
   const uids = list.map(x => (x.detected || {}).uid).filter(Boolean); if (new Set(uids).size !== uids.length) bad.push('doppelte UID (Geraet nach APK-Update doppelt?)');
   const kinds = new Set(list.map(x => x.kiosk)); for (const k of kinds) if (!['', 'tbview', 'fully', 'browser', null, undefined].includes(k)) bad.push('unbekannter kiosk-Typ ' + k);
-  const shelly = list.filter(x => x.ip === SHELLY.split(':')[0]);
+  const shelly = list.filter(x => x.ip === SHELLY.split(':')[0]).sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));   // online zuerst: Offline-Geraete zeigen seit 0.20.45 ihre zuletzt bekannte IP
   if (shelly.length && shelly[0].kiosk !== 'tbview') bad.push(`Shelly ${shelly[0].name}: kiosk "${shelly[0].kiosk}" != tbview`);
   const tb = list.filter(x => x.kiosk === 'tbview').length;
   const info = `${list.length} Geraete (${list.filter(x => x.online).length} online), ${tb} tbview` + (shelly.length ? `, Shelly "${shelly[0].name}" ${shelly[0].online ? 'online' : 'offline'}` : ', Shelly nicht in Liste');
