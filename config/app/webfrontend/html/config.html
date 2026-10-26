@@ -2686,7 +2686,7 @@ function helpify(root){
     if(host===fd) row.after(pop); else host.after(pop);
     b.onclick=e=>{ e.stopPropagation(); if(qOpen&&qOpen.b===b){ qClose(); return; } qClose(); qOpen={b,pop}; pop.hidden=false; b.classList.add('on'); b.setAttribute('aria-expanded','true'); qPlace(); };
   });
-  (root||document).querySelectorAll('.card').forEach(card=>{
+  (root||document).querySelectorAll('.card,.gds').forEach(card=>{
     if(card.dataset.help) return;
     // Eingeklappte Karte mit Klasse qhd: ?-Knopf in der Summary hinter der Ueberschrift, Popover neben der Karte
     if(card.matches('details.qhd')){ const sm=card.querySelector(':scope > summary'), h=sm&&sm.querySelector('h3');
@@ -6723,7 +6723,7 @@ function gdHTML(n){
   const dsrv=(l.detected&&l.detected.srv)||'', moved=!up&&!!l.detected&&dsrv!==location.host&&!npLocalHost(location.host);
   const ipbox='<div class="gds"><h3>'+T('Verbindung')+'</h3><div class="gdrn gdip"><input type="text" class="gdip_in" inputmode="decimal" autocomplete="off" placeholder="192.168.1.77" value="'+esc(l.ip||'')+'" aria-label="'+T('IP-Adresse des Geräts')+'">'+
     '<button type="button" class="btn sm ghost gdip_go">'+T('Adresse speichern')+'</button></div>'+
-    '<div class="dhint">'+(l.ipLast?T('Zuletzt bekannte Adresse. Damit erreicht tilebert das Gerät auch ohne Verbindung, z. B. für „TbViewer installieren“ und „Protokoll holen“.'):T('tilebert erkennt die Adresse selbst, solange das Gerät verbunden ist. Trage sie nur ein, wenn das Gerät nicht verbunden ist.'))+'</div>'+
+    '<p class="note">'+(l.ipLast?T('Zuletzt bekannte Adresse. Damit erreicht tilebert das Gerät auch ohne Verbindung, z. B. für „TbViewer installieren“ und „Protokoll holen“.'):T('tilebert erkennt die Adresse selbst, solange das Gerät verbunden ist. Trage sie nur ein, wenn das Gerät nicht verbunden ist.'))+'</p>'+
     (moved?'<div class="dhint'+(dsrv?' bad':'')+'" role="status">'+(dsrv?T('Das Gerät kennt die neue Adresse von tilebert noch nicht (zuletzt: {a}). Tippe auf „TbViewer installieren“, dann übernimmt es die Adresse. Oder tippe am Gerät 5× aufs Display und wähle „Einstellungen“ oder „Adresse ändern“.').replace('{a}',esc(dsrv)):T('Gerät nicht verbunden. Ist tilebert umgezogen (neuer LoxBerry oder anderer Port), kennt das Gerät die neue Adresse nicht. Tippe auf „TbViewer installieren“, dann übernimmt es die Adresse. Oder tippe am Gerät 5× aufs Display und wähle „Einstellungen“ oder „Adresse ändern“.'))+' '+T('Danach fragt das Gerät einmal „USB-Debugging zulassen?“. Tippe dort auf „Immer erlauben“.')+'</div>':'')+'</div>';
   h+='<aside class="gdside">'+ipbox+'<div class="gds"><h3>'+T('Aktionen')+'</h3><div class="gdacts" data-ip="'+esc(agIp)+'" data-devip="'+esc(l.ip||'')+'">'+ac+'</div></div>'+
     (has('fullyinstall')?'<div class="gds"><h3>TbViewer</h3>'+tbvHTML(n,tb)+'</div>':'')+
