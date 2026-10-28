@@ -29,6 +29,7 @@ installierten Original-LoxPanel-Version**, ohne Kollision:
 
 ## Eigene Funktionen dieses Forks
 
+- **Gerät löschen ohne Neuladen (0.20.48)** — Ein gelöschtes Gerät verschwindet sofort aus der Geräteliste (bisher erst nach manuellem Neuladen der Seite).
 - **Energiefluss harmonischer (0.20.47)** — Knoten, Symbole, Linien, Punkte und Schrift folgen jetzt einem Proportionssystem nach dem goldenen Schnitt; kleinere Knoten mit mehr Luft, lesbare Namen auch in der Dashboard-Kachel, Kennzahl „PV-Eigenverbrauch“ einzeilig.
 - **Verständlichere Texte bei „Verbindung“ (0.20.46)** — Gerätedetail: Adressfeld, Umzugs-Hinweis, adb-Freigabe und Fehlermeldungen erklären jetzt die Situation statt der Technik (DE/EN).
 - **Umzug auf anderen LoxBerry, Energiefluss-Punkte (0.20.45)** — Nach Umzug/Portwechsel: Gerätedetail zeigt die zuletzt bekannte IP (änderbar), „TbViewer installieren“ setzt die neue Server-Adresse per adb, verständlicher Hinweis zur adb-Freigabe; am Gerät öffnen Fehlerseite („Adresse ändern“) und „Einstellungen“ die Adresseingabe statt zurückzuspringen (TbViewer 5.18). Energiefluss: Netz-Punkte wieder gleich groß und mittig auf der Linie.

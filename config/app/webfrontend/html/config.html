@@ -6509,7 +6509,7 @@ async function devDelete(name){
   const r=await devDeleteNow(name);
   if(!r.ok){ snack(fehlerText(T('Entfernen fehlgeschlagen.'),r.err)); return; }
   devDropLocal(name); delete DEVP[name]; delete DEVD[name];
-  if(DEV_CUR===name) gdClose(); else renderDevices();
+  if(DEV_CUR===name) gdClose(true); else renderDevices();
   snack(T('Gerät „{n}“ entfernt.').replace('{n}',name)); setTimeout(()=>pollDevices&&pollDevices(),1500);
 }
 // ---- Offline-Geräte: Gruppierung und Aufräumen ----
@@ -6776,8 +6776,9 @@ function gdOpen(n){
   gdFetch(n).then(()=>{ if(DEV_CUR===n) gdRender(); });
   const sc=$('#scroll'); if(sc) sc.scrollTop=0;
 }
-function gdClose(){
-  gdReadDom(); DEV_CUR=''; renderDevices(); navHashWrite();
+// verwerfen: Geraet geloescht, Detail-DOM nicht zurueckschreiben (legt es sonst in DEV neu an)
+function gdClose(verwerfen){
+  if(!verwerfen) gdReadDom(); DEV_CUR=''; renderDevices(); navHashWrite();
   const sc=$('#scroll'); if(sc) sc.scrollTop=0;
 }
 // Eingaben aus Erweitert (Typ, Zoom, Display-Treiber) in die Arbeitskopie DEV uebernehmen
