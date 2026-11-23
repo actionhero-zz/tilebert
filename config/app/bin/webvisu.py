@@ -1435,7 +1435,11 @@ def _loxlib_names() -> list:
 
 
 def _clean_icon(ic):
-    """Icon-Referenz einer Kachel validieren (Quelle + sicherer Bezeichner)."""
+    """Icon-Referenz einer Kachel validieren (Quelle + sicherer Bezeichner).
+    Nur die Quellen, die der Kachel-Editor anbietet und der Server ausliefert:
+    eingebaut, Loxone-Icon des Miniservers (/icon) und Loxone-Bibliothek
+    (/loxlib). Die Quellen "google" (/gicon) und "custom" (/uicon) aus Upstream
+    liefert der Server nie aus und der Editor bot sie nie an - entfernt."""
     if not isinstance(ic, dict):
         return None
     s = ic.get("src")
@@ -1447,10 +1451,6 @@ def _clean_icon(ic):
     if s == "loxlib" and isinstance(ic.get("name"), str) and _LOXLIB_NAME.match(ic["name"]) \
             and ".." not in ic["name"]:
         return {"src": "loxlib", "name": ic["name"]}
-    if s == "google" and isinstance(ic.get("name"), str) and re.match(r"^[a-z0-9_]{1,48}$", ic["name"]):
-        return {"src": "google", "name": ic["name"]}
-    if s == "custom" and isinstance(ic.get("file"), str) and re.match(r"^[A-Za-z0-9._-]{1,80}$", ic["file"]):
-        return {"src": "custom", "file": ic["file"]}
     return None
 # Zustandstexte generischer Fensterkontakte (InfoOnlyDigital), ganze Woerter.
 _WIN_CLOSED = {"geschlossen", "zu", "dicht", "verschlossen", "closed", "shut"}
@@ -3997,7 +3997,7 @@ class App:
                     ic = (sv.get("barIcons") or {}).get(ch.get("id"))
                     ref = self._icon_ref(ic) if ic else {}
                     if ref:
-                        for k in ("icon", "iconUrl", "iconImg"):
+                        for k in ("icon", "iconUrl"):
                             ch.pop(k, None)
                         ch.update(ref)
             except Exception:
@@ -4798,7 +4798,7 @@ class App:
                 "totals": {"prod": prod_total, "cons": cons_total, "grid": g or 0.0}}
 
     def _icon_ref(self, ic) -> dict:
-        """Symbol-Referenz (Konfigurator) -> {icon}|{iconUrl}|{iconImg} fuers Panel."""
+        """Symbol-Referenz (Konfigurator) -> {icon}|{iconUrl} fuers Panel."""
         s = ic.get("src") if isinstance(ic, dict) else None
         if s == "builtin" and ic.get("id"):
             return {"icon": ic["id"]}
@@ -4807,10 +4807,6 @@ class App:
             return {"iconUrl": u} if u else {}
         if s == "loxlib" and ic.get("name"):
             return {"iconUrl": "/loxlib?n=" + quote(str(ic["name"]))}
-        if s == "google" and ic.get("name"):
-            return {"iconUrl": "/gicon?name=" + quote(str(ic["name"]))}
-        if s == "custom" and ic.get("file"):
-            return {"iconImg": "/uicon?f=" + quote(str(ic["file"]))}
         return {}
 
     def _tab_meta(self, tab_keys, prof: dict | None = None) -> dict:
@@ -7626,21 +7622,12 @@ class App:
             if s == "builtin" and ic.get("id"):
                 it["icon"] = ic["id"]
                 it.pop("iconUrl", None)
-                it.pop("iconImg", None)
             elif s == "loxone" and ic.get("p"):
                 u = self._icon_url(ic["p"])
                 if u:
                     it["iconUrl"] = u
-                    it.pop("iconImg", None)
             elif s == "loxlib" and ic.get("name"):
                 it["iconUrl"] = "/loxlib?n=" + quote(str(ic["name"]))
-                it.pop("iconImg", None)
-            elif s == "google" and ic.get("name"):
-                it["iconUrl"] = "/gicon?name=" + quote(str(ic["name"]))
-                it.pop("iconImg", None)
-            elif s == "custom" and ic.get("file"):
-                it["iconImg"] = "/uicon?f=" + quote(str(ic["file"]))
-                it.pop("iconUrl", None)
         # Mini-Verlauf in der Kachel (tiles.<uuid>.chart = Zeitraum), nur fuer
         # Bausteine mit Aufzeichnung. Ein Tipp oeffnet wie bisher die Detailseite.
         rng = ov.get("chart")
@@ -9267,7 +9254,7 @@ class App:
         simple = not (kinds & self._SPECIAL_KINDS) and all(
             all(cell.get("nav") for cell in (r.get("cells") or [])) for r in rows)
         if simple and hero:
-            v["bgIcon"] = {k: hero[k] for k in ("icon", "iconUrl", "iconImg") if hero.get(k)}
+            v["bgIcon"] = {k: hero[k] for k in ("icon", "iconUrl") if hero.get(k)}
         room = _clean((self.rooms.get(c.get("room")) or {}).get("name"))
         name = _clean(c.get("name"))
         # Raumzeile weglassen, wenn sie nichts sagt: gleich dem Namen ("OG Bad /

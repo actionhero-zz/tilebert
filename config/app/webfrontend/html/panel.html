@@ -123,7 +123,7 @@
   html.sqbig .screen>.tabs .tab::after{display:none;}   /* aktiv = Flaeche + Farbe, statt Punkt */
   html.sqbig .screen>.tabs .tab .tlbl{display:block;max-width:100%;padding:0 4px;box-sizing:border-box;font-size:11px;font-weight:600;
     line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit;}
-  html.sqbig .screen>.tabs .tab svg,html.sqbig .screen>.tabs .tab .tico,html.sqbig .crumb svg,html.sqbig .crumb .rawico,
+  html.sqbig .screen>.tabs .tab svg,html.sqbig .screen>.tabs .tab .tico,html.sqbig .crumb svg,
   html.sqbig .screen>.tabs .tabback svg{width:36px;height:36px;}
   html.sqbig{--sv-ico:29px;}
   html.sqfit .sv-close{height:100%;}
@@ -347,7 +347,6 @@
   .tile .ico,.tile .icowrap{color:var(--ico,var(--muted));}
   .tile.on .ico,.tile.on .icowrap{color:var(--ico-fixed,var(--glow));}
   .tile .ico svg{width:var(--ico-size,38px);height:var(--ico-size,38px);}
-  .tile .ico .rawico{width:var(--ico-size,38px);height:var(--ico-size,38px);object-fit:contain;display:block;}
   /* Positionsring: Stellung von Rollladen, Tor, Fenster und Dimmer als Bogen
      um das Icon. Der Server schickt "pos" nur fuer diese Bausteine; ohne den
      Wert entsteht gar kein Element und die Kachel sieht aus wie immer.
@@ -512,7 +511,6 @@
   .hero .circle svg{width:36px;height:36px;}
   .hero .circle .himg{width:38px;height:38px;background-color:currentColor;
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
-  .hero .circle .rawico{width:38px;height:38px;object-fit:contain;}
   .status{text-align:center;color:var(--muted);font-size:14px;padding:2px 6px;}
   /* Gesperrter Baustein (jLocked, view.gesperrt): seine Bedienung gedimmt und
      ohne Wirkung. Was nur weiterfuehrt (nav-Zellen/-Szenen), bleibt bedienbar;
@@ -780,7 +778,6 @@
   .grid.cells.g3 .svw[data-sz="2x2"] .tile .name{font-size:calc(var(--name-size,18px) * 1.3);}
   .grid.cells.g3 .svw[data-sz="2x2"] .tile .sub{font-size:calc(var(--sub-size,15px) * 1.15);}
   .grid.cells.g2 .svw .tile .name{white-space:nowrap;display:block;}
-  .tab img.tico{background:none;object-fit:contain;}
   .grid.cells.g2 .svw[data-sz="2x2"] .tile{--ico-size:72px;padding:22px;}
   .grid.cells.g2 .svw[data-sz="2x2"] .tile .name{font-size:calc(var(--name-size,18px) * 1.5);}
   .grid.cells.g2 .svw[data-sz="2x2"] .tile{--nm-s:calc(var(--name-size,18px) * 1.5);--nm-n:1;}
@@ -930,7 +927,7 @@
   .sv-st .cbw{margin-top:calc(var(--sv-ico,20px) * .3);margin-right:calc(var(--sv-ico,20px) * .3);}   /* Symbol samt Bubble optisch mittig */
   .svsti{display:flex;align-items:center;gap:6px;height:36px;padding:0 10px;border:0;border-radius:var(--r-m);background:transparent;
     color:var(--tab-idle,var(--muted));font:inherit;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;touch-action:manipulation;}
-  .svsti .stci{width:var(--sv-ico,20px);height:var(--sv-ico,20px);} .svsti .cbw{--cbs:var(--sv-ico,20px);} .svsti img.stci{object-fit:contain;}
+  .svsti .stci{width:var(--sv-ico,20px);height:var(--sv-ico,20px);} .svsti .cbw{--cbs:var(--sv-ico,20px);}
   .sv-st.many{gap:2px;} .sv-st.many .svsti{padding:0 7px;gap:4px;font-size:12px;}
   /* Status-Baustein mit Text: Text max. ~120 px mit Ellipse; Leiste darf umbrechen statt ueberzulaufen */
   .svsti .svstt{max-width:120px;overflow:hidden;text-overflow:ellipsis;}
@@ -1280,7 +1277,7 @@
   .crumb .ico,.crumb .icowrap,.crumb .blindico,.crumb .windowico{--ico:var(--dot);--ico-fixed:var(--dot);color:var(--dot);}
   .crumb .ico,.crumb .ico.img{display:inline-grid;place-items:center;width:26px;height:26px;}
   .crumb .ico.img{background-color:var(--dot);-webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
-  .crumb svg,.crumb .rawico{width:26px;height:26px;}
+  .crumb svg{width:26px;height:26px;}
   .crsep{flex:none;width:12px;display:grid;place-items:center;color:var(--tab-idle,var(--muted));opacity:.6;}
   .crsep svg{width:16px;height:16px;}
   @keyframes crumbIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:none;}}
@@ -1335,7 +1332,6 @@
   .dbg>*{position:absolute;left:calc(var(--dbs) * -.18);bottom:calc(var(--dbs) * -.2);width:var(--dbs);height:var(--dbs);}
   .grid.hasbg>:not(.dbg):not(.dcover){position:relative;z-index:1;}
   .dbg svg{stroke-width:.7;}
-  .dbg .rawico{object-fit:contain;}
   .dbg .dbgm{display:block;background-color:var(--ink);
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   /* Zustandsflaeche (Alarmanlage, Rauchmelder, Wecker klingelt): farbig je Zustand */
@@ -1431,7 +1427,7 @@
     box-shadow:0 1px 2px rgba(0,0,0,.10),0 4px 12px rgba(0,0,0,.10);}
   /* Kleines Piktogramm ueber dem grossen Wert (der Wert ist die Hauptsache) */
   .grid.panel .hero .circle{width:56px;height:56px;}
-  .grid.panel .hero .circle svg,.grid.panel .hero .circle .himg,.grid.panel .hero .circle .rawico{width:28px;height:28px;}
+  .grid.panel .hero .circle svg,.grid.panel .hero .circle .himg{width:28px;height:28px;}
   /* Mockup-Schriftgroessen: Nebentexte mind. 17 px, Titel in der Zahlen-/Titelschrift */
   .grid.panel .status,.grid.panel .sltx{font-size:18px;}
   .grid.panel .ptitle{font-family:var(--font-num,"Sora",var(--font,"Manrope",sans-serif));font-size:22px;font-weight:600;}
@@ -3955,9 +3951,7 @@ function renderPanel(blocks){
     state:1,log:1,kpis:1,audiomid:1,alarmedit:1,web:1,chips:1,setp:1,tline:1,ist:1,sline:1,mlist:1,msld:1,mseg:1,mline:1,mhero:1,minput:1};
   const bh = b => {
     if(b.k==='eflow') return '<div class="epane-detail" data-eflow></div>';   // Radial; wird nach dem Einfuegen von paintEnergy gefuellt
-    if(b.k==='hero'){ const hic = b.iconImg
-        ? '<img class="rawico" src="'+esc(b.iconImg)+'" alt="">'
-        : b.iconUrl
+    if(b.k==='hero'){ const hic = b.iconUrl
         ? '<span class="himg" style="--u:url(\''+esc(b.iconUrl)+'\')"></span>'
         : svg(ICONS[b.icon]||ICONS.info);
       return '<div class="hero"><div class="circle">'+hic+'</div></div>'; }
@@ -4012,9 +4006,8 @@ function renderPanel(blocks){
   };
   // Reine Anzeige: Piktogramm uebergross, blass, links unten angeschnitten
   const bi=view&&view.bgIcon;
-  const bgHtml = bi ? '<div class="dbg" aria-hidden="true">'+(bi.iconImg
-      ? '<img class="rawico" src="'+esc(bi.iconImg)+'" alt="">'
-      : bi.iconUrl ? '<span class="dbgm" style="--u:url(\''+esc(bi.iconUrl)+'\')"></span>'
+  const bgHtml = bi ? '<div class="dbg" aria-hidden="true">'+(bi.iconUrl
+      ? '<span class="dbgm" style="--u:url(\''+esc(bi.iconUrl)+'\')"></span>'
       : svg(ICONS[bi.icon]||ICONS.info))+'</div>' : '';
   g.classList.toggle('hasbg', !!bi);
   // Piktogramm-Groesse relativ zur Karte (kleinere Seite), bei Groessenaenderung nachziehen
@@ -4197,10 +4190,9 @@ function renderTabs(){
     items = tabsCfg.map(tk => {
       const cls = 'tab'+(tk===at?' active':'');
       const t = TABS.find(x => x.tab===tk), m0 = tabMeta[tk];
-      // Eigenes Symbol aus der Config (tabMeta icon/iconUrl/iconImg) vor dem Standard
-      if(m0 && (m0.icon || m0.iconImg || (t && m0.iconUrl))){
+      // Eigenes Symbol aus der Config (tabMeta icon/iconUrl) vor dem Standard
+      if(m0 && (m0.icon || (t && m0.iconUrl))){
         const ico = m0.icon ? svg(ICONS[m0.icon]||ICONS.info)
-          : m0.iconImg ? '<img class="tico img" src="'+esc(m0.iconImg)+'" alt="">'
           : '<span class="tico" style="--u:url(\''+esc(m0.iconUrl)+'\')"></span>';
         return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(m0.label||(t&&t.label)||'')+'">'+ico+'</div>';
       }
@@ -4475,8 +4467,6 @@ function tileHtml(it, extraCls){
     ? blindIcon(it.blind, it.blindShape)
     : (typeof it.winpos === 'number')
     ? windowIcon(it.winpos)
-    : it.iconImg
-    ? '<span class="ico"><img class="rawico" src="'+esc(it.iconImg)+'" alt=""></span>'
     : it.iconUrl
     ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
     : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
@@ -5957,8 +5947,7 @@ function stHeadIco(l){
   const p=l==='alarm'?'<path d="M12 7v6"/><path d="M12 17h.01"/>':(l==='hint'?'<path d="M12 11v6"/><path d="M12 7h.01"/>':'<path d="m7.5 12.5 3 3 6-6.5"/>');
   return '<span class="sthi">'+svg('<circle cx="12" cy="12" r="9"/>'+p)+'</span>';
 }
-function stIco(c){ if(c.iconImg) return '<img class="stci img" alt="" src="'+esc(c.iconImg)+'">';   // eigenes Bild-Symbol
-  return c.iconUrl ? '<span class="stci" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
+function stIco(c){ return c.iconUrl ? '<span class="stci" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
                                     : '<span class="stci svg">'+svg(ICONS[c.icon]||ICONS.info)+'</span>'; }
 // Tipp auf einen Chip -> Detailseite des Bausteins (auch wenn er in keinem Tab liegt);
 // Tipp auf die Kachel -> Status-Seite mit allen Chips groß und dem Verlauf.
