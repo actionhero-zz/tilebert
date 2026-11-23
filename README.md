@@ -29,6 +29,9 @@ installierten Original-LoxPanel-Version**, ohne Kollision:
 
 ## Eigene Funktionen dieses Forks
 
+- **Upstream-Verbesserungen (0.21.1)** — Wecker zeigen die nächste Weckzeit in Ortszeit. Gesperrte Bausteine zeigen den Grund und senden keine Befehle. Veraltete Icon-Quellen entfallen; unbekannte Bausteine werden gekennzeichnet. Zentralen und Fensterlisten behalten ihre Reihenfolge während Live-Updates. Klimaregler zeigen Anforderungen und die Anzahl betroffener Räume/Anlagen, bei unveränderter Sollwert- und Modusbedienung. Der Strompreis-Optimierer zeigt Preisprognosen und geplante Einsatzzeiten; Zyklen lassen sich mit Bedarf und Zeitraum starten sowie nach Rückfrage abbrechen. Logikvorgaben bleiben fest. Stabile Updatequelle bleibt 0.21.0.
+
+
 - **Stabiles Release (0.21.0)** — Erster stabiler Release seit 0.20.30; entspricht inhaltlich 0.20.48 (Gerät löschen ohne Neuladen) – alle Änderungen seit 0.20.31 siehe unten.
 - **Gerät löschen ohne Neuladen (0.20.48)** — Ein gelöschtes Gerät verschwindet sofort aus der Geräteliste (bisher erst nach manuellem Neuladen der Seite).
 - **Energiefluss harmonischer (0.20.47)** — Knoten, Symbole, Linien, Punkte und Schrift folgen jetzt einem Proportionssystem nach dem goldenen Schnitt; kleinere Knoten mit mehr Luft, lesbare Namen auch in der Dashboard-Kachel, Kennzahl „PV-Eigenverbrauch“ einzeilig.

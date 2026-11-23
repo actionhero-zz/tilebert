@@ -2329,6 +2329,12 @@
   .amid .amt .agrp{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:15px;margin-top:6px;}
   .amt .agrp svg{width:16px;height:16px;flex:none;} .amt .agrp i{font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   @media (max-width:420px){ .brow.transport:has(.mini) .btn.icon:not(.big):not(.mini){width:50px;height:50px;} }
+  .spotform{align-self:stretch;width:100%;max-width:640px;margin-inline:auto;}
+  .spotform fieldset{border:0;display:flex;flex-direction:column;gap:12px;min-width:0;}
+  .spotform label{display:flex;flex-direction:column;gap:4px;}
+  .spotform input{font:inherit;font-size:max(1rem,1em);min-height:48px;padding:8px;color:inherit;background:var(--bg);border:1px solid var(--muted);border-radius:8px;}
+  .spotform .sbtn{width:auto;min-height:48px;padding-inline:16px;}
+  .spotform :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 </style>
 </head>
 <body>
@@ -2896,7 +2902,7 @@ function askPin(cb,msg){
 let DEV_TOK='', DEV_BTN=false;
 const DS={el:null, d:null, view:'', panelSel:null, idle:0, q:Promise.resolve(), err:''};
 const DS_IDLE_MS=60000;
-const DS_EN={'Gesperrt':'Locked','Typ nicht unterstützt':'Type not supported','Senden':'Send','Zeichen / ? # \\ sind nicht möglich':'Characters / ? # \\ are not possible','Rot':'Red','Orange':'Orange','Gelb':'Yellow','Grün':'Green','Türkis':'Cyan','Blau':'Blue','Violett':'Violet','Pink':'Pink','Einstellungen':'Settings','Einmal':'Once','Täglich':'Daily','Aktiv':'Active','Abbrechen':'Cancel','Übernehmen':'Apply','Effekte':'Effects','Animation':'Animation','Keine':'None','Mittel':'Medium','Viel':'High',
+const DS_EN={"Zyklus":"Cycle","Bedarf":"Demand","Zeitraum":"Period","Mindestlaufzeit":"Minimum runtime","von der Logik vorgegeben":"Defined by logic","Zyklus starten":"Start cycle","Zyklus abbrechen":"Cancel cycle","Zyklus wirklich abbrechen?":"Really cancel the cycle?",'Gesperrt':'Locked','Typ nicht unterstützt':'Type not supported','Senden':'Send','Zeichen / ? # \\ sind nicht möglich':'Characters / ? # \\ are not possible','Rot':'Red','Orange':'Orange','Gelb':'Yellow','Grün':'Green','Türkis':'Cyan','Blau':'Blue','Violett':'Violet','Pink':'Pink','Einstellungen':'Settings','Einmal':'Once','Täglich':'Daily','Aktiv':'Active','Abbrechen':'Cancel','Übernehmen':'Apply','Effekte':'Effects','Animation':'Animation','Keine':'None','Mittel':'Medium','Viel':'High',
   'Kontrast':'Contrast','Lichtszenen':'Light scenes','Werte groß':'Large values','Animierte Symbole':'Animated icons','‹ Zurück':'‹ Back','Panel':'Panel','Töne':'Sounds','Klingel':'Doorbell','Alarm':'Alarm','Wecker':'Alarm clock',
   'Hinweis':'Notice','Tipp':'Tap','Nachts abdunkeln':'Dim at night','Präsenzerkennung':'Presence detection','Helligkeit':'Brightness','Auto':'Auto','Fest':'Fixed',
   'Standard':'Default','Helligkeit fest':'Fixed brightness','geändert':'changed','Auf Standard zurücksetzen':'Reset to default','Alarm ausschalten?':'Turn alarm off?',
@@ -3685,6 +3691,7 @@ function blockSig(blocks){
     : b.k==='dhead' ? 'dhead'+(b.acts?b.acts.map(a=>a.icon).join(','):'')
     : b.k==='sline' ? 'sline'+(b.chip?1:0)
     : (b.k==='chips'||b.k==='setp'||b.k==='tline') ? b.k+JSON.stringify(b)   // Inhalt aendert sich -> neu zeichnen
+    : b.k==='spotform' ? 'spot'+JSON.stringify([b.uuid,b.tmpl,b.cancel,b.fields.map(f=>[f.name,f.label,f.sub,f.min,f.step,f.name?null:f.value])])
     : b.k==='astat' ? 'astat'+(b.sub?1:0)
     : b.k==='audiomid' ? 'audiomid'+(b.grp?'g':'')
     : b.k==='scenes' ? 'scenes'+(b.items?b.items.length:0)
@@ -3928,7 +3935,25 @@ function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];
   blocks.filter(b=>b.k==='chart').forEach((b,i)=>{ if(els[i]) paintChart(els[i],b); });
 }
+function spotFormHtml(b){
+  return '<form class="spotform" data-spot="'+esc(b.uuid)+'"><fieldset'+(view&&view.gesperrt?' disabled':'')+'><legend>'+esc(dsT('Zyklus'))+'</legend>'+
+    b.fields.map(f=>f.name ? '<label>'+esc(dsT(f.label))+' (h)<input type="number" name="'+esc(f.name)+'" min="'+f.min+'" step="'+f.step+'" value="'+f.value+'" required></label>' :
+      '<p>'+esc(dsT(f.label))+': '+esc(String(f.value))+' h'+(f.sub?' · '+esc(dsT(f.sub)):'')+'</p>').join('')+
+    (b.tmpl?'<button type="submit" class="sbtn">'+esc(dsT('Zyklus starten'))+'</button>':'')+
+    (b.cancel?'<button type="button" class="sbtn" data-cancel>'+esc(dsT('Zyklus abbrechen'))+'</button>':'')+'</fieldset></form>';
+}
+function spotFormBind(g,blocks,draft){
+  const b=blocks.find(b=>b.k==='spotform'), f=g.querySelector('.spotform'); if(!b||!f) return;
+  if(draft&&draft.uuid===b.uuid) for(const n of f.elements) if(n.name&&draft.values[n.name]!=null) n.value=draft.values[n.name];
+  f.addEventListener('submit',e=>{ e.preventDefault(); if(!b.tmpl||(view&&view.gesperrt)||!f.reportValidity()) return;
+    let cmd=b.tmpl; for(const n of f.elements) if(n.name) cmd=cmd.replace('{'+n.name+'}',String(n.valueAsNumber));
+    if(!cmd.includes('{')) sendCmd(b.uuid,cmd,view&&view.secured); });
+  const cancel=f.querySelector('[data-cancel]'); if(cancel) cancel.addEventListener('click',()=>{
+    if(!(view&&view.gesperrt)&&window.confirm(dsT('Zyklus wirklich abbrechen?'))) sendCmd(b.uuid,'cancel',view&&view.secured); });
+}
 function renderPanel(blocks){
+  const oldSpot=el('grid').querySelector('.spotform');
+  const spotDraft=oldSpot?{uuid:oldSpot.dataset.spot,values:Object.fromEntries(new FormData(oldSpot))}:null;
   stopVideo();
   if(_aeStop) _aeStop();
   closeMenu();
@@ -3950,6 +3975,7 @@ function renderPanel(blocks){
   const TOPK = {dhead:1,hero:1,cover:1,video:1,status:1,title:1,value:1,big:1,astat:1,eflow:1,scenes:1,shade:1,dim:1,
     state:1,log:1,kpis:1,audiomid:1,alarmedit:1,web:1,chips:1,setp:1,tline:1,ist:1,sline:1,mlist:1,msld:1,mseg:1,mline:1,mhero:1,minput:1};
   const bh = b => {
+    if(b.k==='spotform') return spotFormHtml(b);
     if(b.k==='eflow') return '<div class="epane-detail" data-eflow></div>';   // Radial; wird nach dem Einfuegen von paintEnergy gefuellt
     if(b.k==='hero'){ const hic = b.iconUrl
         ? '<span class="himg" style="--u:url(\''+esc(b.iconUrl)+'\')"></span>'
@@ -4034,6 +4060,7 @@ function renderPanel(blocks){
     for(const b of blocks){ if(b.k!=='more') html+=bh(b); }
     g.innerHTML=bgHtml+html;
   }
+  spotFormBind(g,blocks,spotDraft);
   fitDbg();
   if(bi&&window.ResizeObserver){ if(g._dbgRo) g._dbgRo.disconnect(); g._dbgRo=new ResizeObserver(fitDbg); g._dbgRo.observe(g); }
   else if(g._dbgRo){ g._dbgRo.disconnect(); g._dbgRo=null; }

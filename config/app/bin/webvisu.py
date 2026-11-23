@@ -283,7 +283,7 @@ log = logging.getLogger("loxpanel.webvisu")
 # kennt sie nicht). Bei jedem Release-Bump hier mitziehen - einziger
 # zuverlaessiger Weg zu pruefen, ob ein Update den Container tatsaechlich neu
 # gebaut hat (z.B. bei einem haengenden Docker-Build-Cache).
-APP_VERSION = "0.21.0"
+APP_VERSION = "0.21.1"
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
@@ -2180,6 +2180,37 @@ def load_devices() -> dict:
     return {}
 
 
+def _spot_zeit(dt):
+    return dt.strftime("%d.%m. %H:%M")
+
+
+def _prognose_lesen(wert) -> list | None:
+    """Antwort von getForecasts (Strompreis-Optimierer, Strukturdoku 16.0): eine
+    JSON-Liste [{u, v, s, e, planned}] mit dem Wert je Intervall, Start und Ende
+    in Unix-UTC und planned, wenn der Baustein den Ausgang dann einschaltet;
+    als Text oder schon als Liste. -> [(start, ende, wert, geplant)] nach Start
+    sortiert; Eintraege ohne endliche Zahl oder mit Ende nicht nach dem Start
+    fallen weg. None, wenn die Antwort keine Liste ist."""
+    if isinstance(wert, str):
+        try:
+            wert = json.loads(wert)
+        except ValueError:
+            return None
+    if not isinstance(wert, list):
+        return None
+    out = []
+    for e in wert:
+        if not isinstance(e, dict):
+            continue
+        try:
+            s, en, v = int(e["s"]), int(e["e"]), float(e["v"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+        if math.isfinite(v) and en > s:
+            out.append((s, en, v, e.get("planned") is True))
+    return sorted(out)
+
+
 class App:
     def __init__(self, ms: dict, audio: dict | None = None,
                  audiometa: dict | None = None):
@@ -2290,6 +2321,8 @@ class App:
         # [(sekunden, [werte])] oder None nach Abruffehler). Ein Monat, der beim
         # Abruf schon vorbei war, aendert sich nicht mehr.
         self.stat_cache: dict[tuple[str, str], tuple[float, str, list | None]] = {}
+        self.prognose_cache = {}
+        self.prognose_pending = set()
         self.stat_pending: set[tuple] = set()
         self._stat_doc_path = False    # True: dokumentierten Statistik-Pfad zuerst versuchen
         self._stat_doc_path_tried = False   # True: ein Pfad lieferte schon Daten -> 404 heisst "leerer Monat"
@@ -6790,7 +6823,7 @@ class App:
         v = self._state(c, "nextEntryTime")
         try:
             ts = int(float(v))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return ""
         if ts <= 0:
             return ""
@@ -7441,12 +7474,20 @@ class App:
                       nav={"view": "control", "id": uuid},
                       sublabel=(" · ".join(x for x in (modes.get(int(self._state(c, "mode") or 0)),
                                                        (tt + " °C" if tt else "")) if x) or "Klima"))
+        elif t == "SpotPriceOptimizer":
+            preis = self._fmt_num(self._spot_num(c, "current"), (c.get("details") or {}).get("format"))
+            an = bool(self._state(c, "active"))
+            it.update(icon="central", on=an, nav={"view": "control", "id": uuid},
+                      sublabel=" · ".join(x for x in ("Ein" if an else "", preis) if x) or "Aus")
         elif t == "ClimateControllerUS":
             dh = self._state(c, "demandHeat") or 0
             dc = self._state(c, "demandCool") or 0
             it.update(icon="thermo", on=bool(dh or dc),
                       nav={"view": "control", "id": uuid},
                       sublabel=("Heizt" if dh else ("Kühlt" if dc else "Bereit")))
+            active = [e for e in self._klima_einheiten(c) if e["demand"]]
+            if active and (dh or dc):
+                it["sublabel"] += " · " + self._klima_anzahl(active)
         elif t == "SystemScheme":
             # Kachel oeffnet die volle Schema-Ansicht (Hintergrundbild + Live-Werte).
             # Als Sublabel den Hauptbaustein (details.mainControl) zeigen, sonst Hinweis.
@@ -8556,12 +8597,185 @@ class App:
     # liegen in den angeschlossenen Raumregelungen (setComfortTemperature[Cool]/<t>).
     CCUS_MODES = ((2, "Heizen"), (3, "Kühlen"), (1, "Auto"), (0, "Aus"))
 
+    async def _prognose_load(self, uuid: str, ua: str, stand) -> None:
+        """Prognose eines Strompreis-Optimierers holen (sps/io/{uuidAction}/
+        getForecasts) und mit dem Stand von forecastsTimestamp ablegen, zu dem
+        sie gehoert; danach neu rendern lassen. Ein Abruffehler legt None ab."""
+        eintraege = None
+        try:
+            code, wert = await self._ms_jdev(f"sps/io/{ua}/getForecasts")
+            if code == "200":
+                eintraege = _prognose_lesen(wert)
+                if eintraege is None:
+                    log.info("Strompreis-Prognose %s: unbekannte Antwort %.200r", uuid, wert)
+            else:
+                log.info("Strompreis-Prognose %s: Code %s", uuid, code)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError) as err:
+            log.info("Strompreis-Prognose %s nicht abrufbar: %s", uuid, err)
+        finally:
+            self.prognose_pending.discard(uuid)
+        self.prognose_cache[uuid] = (stand, time.monotonic(), eintraege)
+        self._dirty = True
+
+    def strompreis_prognose(self, uuid: str, c: dict) -> tuple[list | None, bool]:
+        """Prognose eines Strompreis-Optimierers aus dem Cache -> (eintraege wie
+        _prognose_lesen oder None nach Abruffehler, laedt_noch). Laut Strukturdoku
+        neu holen, sobald sich forecastsTimestamp aendert; ebenso, wenn sich
+        Zyklus, Bedarf oder Zeitraum aendern, denn danach plant der Baustein
+        neu (planned), auch wenn die Preise bleiben. Die States werden hier
+        gelesen, eine Aenderung rendert die Seite also neu (Lesespur), und die
+        holt dann im Hintergrund nach. Bis dahin bleibt die alte Prognose; nach
+        einem Fehler fruehestens nach STAT_RETRY ein neuer Versuch. Gelesen ueber
+        _num: NaN waere sich selbst ungleich und holte bei jedem Takt neu."""
+        stand = tuple(self._num(self._state(c, s)) for s in ("forecastsTimestamp", "cycleFrom", "cycleUntil", "demand", "period"))
+        ent = self.prognose_cache.get(uuid)
+        want = (ent is None or ent[0] != stand
+                or (ent[2] is None and time.monotonic() - ent[1] >= STAT_RETRY))
+        if want and uuid not in self.prognose_pending and c.get("uuidAction"):
+            self.prognose_pending.add(uuid)
+            self._spawn(self._prognose_load(uuid, c["uuidAction"], stand))
+        return (ent[2] if ent else None), ent is None
+
+    def prognose_bloecke(self, uuid: str, c: dict) -> list:
+        """Diagramme der Prognose eines Strompreis-Optimierers fuer die
+        Detailseite: der Preis je Intervall als Linie in Stufen (Anfang und Ende
+        jedes Intervalls) und, wenn der Baustein Zeiten eingeplant hat, wann er
+        den Ausgang einschaltet (digital). Zeiten als Wanduhr-Sekunden wie die
+        Verlaeufe. Ohne Prognose ein Hinweis statt leerer Diagramme."""
+        eintraege, laedt = self.strompreis_prognose(uuid, c)
+        if not eintraege:
+            return [{"k": "status", "text": "Prognose wird geladen …" if laedt else
+                     "Prognose nicht abrufbar" if eintraege is None else "Keine Prognose"}]
+        dec, unit = _stat_fmt((c.get("details") or {}).get("format"))
+
+        def uhr(t: int) -> int:
+            return _ms_wall(t)
+        t0, t1 = uhr(eintraege[0][0]), uhr(eintraege[-1][1])
+        preis = [p for s, e, v, _ in eintraege for p in ([uhr(s), round(v, dec + 2)], [uhr(e), round(v, dec + 2)])]
+        bloecke = [{"k": "chart", "kind": "analog", "unit": unit, "t0": t0, "t1": t1, "state": "ok",
+                    "series": [{"name": "Preis", "dec": dec, "pts": preis}]}]
+        if any(g for *_, g in eintraege):
+            bloecke.append({"k": "chart", "kind": "digital", "unit": "", "t0": t0, "t1": t1, "state": "ok",
+                            "series": [{"name": "Eingeplant", "dec": 0,
+                                        "pts": [[uhr(s), 1 if g else 0] for s, _, _, g in eintraege]}]})
+        return bloecke
+
+    def _spot_zyklus_bis(self, c: dict) -> datetime | None:
+        """Bis wann der laufende Zyklus eines Strompreis-Optimierers geht (State
+        cycleUntil: Sekunden seit 2009 in UTC, auf Stunden gerundet) in
+        Ortszeit; None ohne laufenden Zyklus."""
+        ts = self._num(self._state(c, "cycleUntil"))
+        if ts is None or ts <= 0 or _EPOCH_2009 + ts <= time.time():
+            return None
+        try:
+            return _ms_dt(_EPOCH_2009 + ts)
+        except (OverflowError, OSError, ValueError):   # ausserhalb dessen, was die Uhr kennt
+            return None
+
+    def _spot_naechster_einsatz(self, uuid: str, c: dict) -> str:
+        """Naechster eingeplanter Einsatz aus der Prognose (App.strompreis_prognose):
+        aneinander anschliessende eingeplante Intervalle zaehlen als einer.
+        Laeuft er schon, "Eingeplant bis 05:00", sonst "Nächster Einsatz 02:00
+        bis 05:00"; leer ohne eingeplante Zeit, die noch nicht vorbei ist."""
+        jetzt = time.time()
+        von = bis = None
+        for s, e, _, geplant in self.strompreis_prognose(uuid, c)[0] or []:
+            if von is None:
+                if geplant and e > jetzt:
+                    von, bis = s, e
+            elif geplant and s <= bis:
+                bis = max(bis, e)
+            else:
+                break
+        if von is None:
+            return ""
+        a, z = _ms_dt(von), _ms_dt(bis)
+        if von <= jetzt:
+            return f"Eingeplant bis {_spot_zeit(z)}"
+        return f"Nächster Einsatz {_spot_zeit(a)} bis " + (z.strftime("%H:%M") if z.date() == a.date()
+                                                             else _spot_zeit(z))
+
+    def _spot_view(self, uuid, c, route):
+        """Strompreis-Optimierer (Strukturdoku SpotPriceOptimizer): aktueller Preis,
+        Ausgang, laufender Zyklus, naechster Einsatz und die Prognose (Preis und
+        eingeplante Zeiten, App.prognose_bloecke), dazu einen Zyklus starten -
+        Bedarf und Zeitraum waehlbar, ausser die Logik gibt sie vor - und
+        abbrechen. Die Mindestlaufzeit hat keinen Befehl und steht nur da."""
+        ua = c.get("uuidAction")
+        det = c.get("details") or {}
+        an = bool(self._state(c, "active"))
+        preis = self._fmt_num(self._spot_num(c, "current"), det.get("format"))
+        blocks = [{"k": "hero", "icon": "central"},
+                  {"k": "big", "text": preis or "–", **({"tone": "good"} if an else {})},
+                  {"k": "status", "text": "Ausgang ein" if an else "Ausgang aus"}]
+        bis = self._spot_zyklus_bis(c)
+        if bis:
+            blocks.append({"k": "status", "text": f"Zyklus läuft bis {_spot_zeit(bis)}"})
+        einsatz = self._spot_naechster_einsatz(uuid, c)
+        if einsatz:
+            blocks.append({"k": "status", "text": einsatz})
+        blocks += self.prognose_bloecke(uuid, c)
+        # Bedarf und Zeitraum fuellen die Vorlage von "Zyklus starten" (Formular);
+        # gibt die Logik einen vor, steht sein Wert fest darin (beim Bedarf 0)
+        stufen, vorlage = [], {}
+        for name, label, wert, logik, schritt, minimum in (
+                ("bedarf", "Bedarf", self._spot_num(c, "demand"), det.get("demandByLogic"), 0.25,
+                 0.25),
+                ("zeitraum", "Zeitraum", self._spot_num(c, "period"), det.get("periodByLogic"),
+                 1, 1)):
+            if wert is None:
+                continue
+            b = {"k": "stepper", "label": label, "value": wert, "unit": "h"}
+            if logik:
+                b["sub"] = "von der Logik vorgegeben"
+                vorlage[name] = "0" if name == "bedarf" else f"{wert:g}"
+            else:
+                # nie unter dem Minimum: Bedarf 0 hiesse "von der Logik", Zeitraum 0 gaebe es nicht
+                b.update(name=name, value=max(wert, minimum), step=schritt, min=minimum)
+                vorlage[name] = "{" + name + "}"
+            stufen.append(b)
+        mrt = self._spot_num(c, "minRuntime")
+        if mrt is not None:
+            stufen.append({"k": "stepper", "label": "Mindestlaufzeit", "value": mrt, "unit": "h",
+                           **({"sub": "von der Logik vorgegeben"} if det.get("minRuntimeByLogic") else {})})
+        tmpl = (f"start/{vorlage['bedarf']}/{vorlage['zeitraum']}"
+                if "bedarf" in vorlage and "zeitraum" in vorlage else None)
+        if stufen or bis:
+            blocks.append({"k": "spotform", "uuid": ua, "fields": stufen,
+                           "tmpl": tmpl, "cancel": bool(bis)})
+        return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
+
+    def _spot_num(self, c, name):
+        return self._num(self._state(c, name))
+
+    def _klima_einheiten(self, c):
+        units = self._json_state(c, "controls")
+        out = []
+        for e in units if isinstance(units, list) else []:
+            u = e.get("uuid") if isinstance(e, dict) else None
+            ec = self.controls.get(u) if isinstance(u, str) else None
+            if ec:
+                out.append({"uuid": u, "demand": bool(e.get("demand")),
+                            "name": _clean(ec.get("name")), "typ": ec.get("type"), "room": ec.get("room")})
+        names = [e["name"] for e in out]
+        for e in out:
+            room = _clean((self.rooms.get(e["room"]) or {}).get("name"))
+            if names.count(e["name"]) > 1 and room:
+                e["name"] += f" ({room})"
+        return out
+
+    @staticmethod
+    def _klima_anzahl(units):
+        n = len(units)
+        rooms = all(e["typ"] in ("IRoomController", "IRoomControllerV2") for e in units)
+        return f"{n} " + (("Raum" if n == 1 else "Räume") if rooms else ("Anlage" if n == 1 else "Anlagen"))
+
     def _ccus_view(self, c: dict, route: dict) -> dict:
         ua = c.get("uuidAction")
         mode = int(self._num(self._state(c, "mode"), -1))
         dh, dc = self._num(self._state(c, "demandHeat"), 0), self._num(self._state(c, "demandCool"), 0)
-        rooms = self._json_state(c, "controls")
-        rooms = rooms if isinstance(rooms, list) else []
+        rooms = self._klima_einheiten(c)
+        rooms.sort(key=lambda e: not e["demand"])
         rows, temps = [], []
         for r in rooms:
             ru = r.get("uuid") if isinstance(r, dict) else None
@@ -8574,7 +8788,7 @@ class App:
             cool = mode == 3 or (mode == 1 and dc > dh)
             key = "comfortTemperatureCool" if cool and self._state(rc, "comfortTemperatureCool") is not None else "comfortTemperature"
             sv = self._num(self._state(rc, key))
-            row = {"id": ru, "icon": "thermo", "label": _clean((self.rooms.get(rc.get("room")) or {}).get("name")) or _clean(rc.get("name")),
+            row = {"id": ru, "icon": "thermo", "label": r["name"],
                    "sub": (f"Ist {self._fmt_num(ta, '%.1f')} °C" if ta is not None else ""), "nav": {"view": "control", "id": ru}}
             if sv is not None:
                 cmd = "setComfortTemperatureCool" if key == "comfortTemperatureCool" else "setComfortTemperature"
@@ -8583,10 +8797,15 @@ class App:
                 row["btns"] = [{"icon": "minus", "label": "Soll −0,5", "cmd": {"uuid": rc.get("uuidAction") or ru, "cmd": f"{cmd}/{sv - 0.5:.1f}"}},
                                {"icon": "plus", "label": "Soll +0,5", "cmd": {"uuid": rc.get("uuidAction") or ru, "cmd": f"{cmd}/{sv + 0.5:.1f}"}}]
                 row.pop("nav")
+            row["sub"] = " · ".join(x for x in ("Mit Anforderung" if r["demand"] else "Ohne Anforderung", row["sub"]) if x)
+            # Navigation bleibt neben den Sollwert-Tasten erreichbar.
+            row["nav"] = {"view": "control", "id": ru}
             rows.append(row)
         ist = (sum(temps) / len(temps)) if temps else None
         state = "Heizt" if dh else ("Kühlt" if dc else "Bereit")
         bits = [state]
+        if rooms:
+            bits.append(f"{sum(e['demand'] for e in rooms)}/{self._klima_anzahl(rooms)} aktiv")
         hum = self._num(self._state(c, "humidity"))
         if hum:
             bits.append(f"Feuchte {self._fmt_num(hum, '%.0f')} %")
@@ -10708,6 +10927,8 @@ class App:
             ]
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
+        if t == "SpotPriceOptimizer":
+            return self._spot_view(uuid, c, route)
         if t == "ClimateControllerUS":
             return self._ccus_view(c, route)
         if t == "Hourcounter":
@@ -11009,6 +11230,24 @@ class App:
             return False
         return uuid in self.sec_uuids()
 
+    def _spot_command_ok(self, uuid, cmd):
+        c = self._resolve_control_by_action(uuid) or {}
+        if c.get("type") != "SpotPriceOptimizer" or not cmd.startswith("start/"):
+            return True
+        parts = cmd.split("/")
+        if len(parts) != 3:
+            return False
+        demand, period = (self._num(v) for v in parts[1:])
+        if demand is None or period is None or period < 1 or period % 1:
+            return False
+        det = c.get("details") or {}
+        if det.get("demandByLogic"):
+            if demand != 0:
+                return False
+        elif demand < 0.25 or (demand * 4) % 1 or demand > period:
+            return False
+        return not det.get("periodByLogic") or period == self._spot_num(c, "period")
+
     async def command(self, uuid: str, cmd: str, pin: str | None = None) -> str | None:
         """Fuehrt einen Befehl aus. Mit pin: gesicherter Befehl (Visu-Passwort)."""
         if not (self.client and uuid and cmd):
@@ -11019,6 +11258,10 @@ class App:
         if not _UUID_CMD_RE.match(str(uuid)) or not _CMD_OK_RE.match(str(cmd)) or ".." in str(cmd) \
                 or _CMD_BAD_PCT_RE.search(str(cmd)):
             log.warning("Befehl abgelehnt (ungueltig): %r %r", str(uuid)[:60], str(cmd)[:60])
+            return None
+        if self._sperre_text(uuid):
+            return "423"
+        if not self._spot_command_ok(uuid, cmd):
             return None
         if cmd.startswith("__central/"):
             return await self._central_do(uuid, cmd.split("/", 1)[1], pin)
@@ -11133,6 +11376,8 @@ class App:
 
     async def _secured_command(self, uuid: str, cmd: str, pin: str) -> str | None:
         """Loxone secured-command: getvisusalt -> Hash(visuPw:salt) -> HMAC(key) -> ios."""
+        if self._sperre_text(uuid):
+            return "423"
         # PIN-Raten bremsen: nach 5 Fehlversuchen je Baustein wachsende Sperre (1-16 min)
         fails, until = self._pin_fail.get(uuid, (0, 0.0))
         if time.monotonic() < until:

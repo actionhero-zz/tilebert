@@ -25,7 +25,8 @@ def({ id: 'QC-M03', stage: 'pm', role: M, must: true, mode: 'manuell', title: 'D
 
 def({ id: 'QC-M04', stage: 'pm', role: M, must: true, mode: 'auto', title: 'Tag vX.Y.Z existiert, zeigt auf HEAD; Version == Tag; Versionsstellen einheitlich' }, () => {
   const v = ver(), vi = versionInfo(), bad = [];
-  if (new Set([vi.plugin, vi.release, vi.app, vi.readme]).size !== 1) bad.push(`Versionen uneinheitlich: ${JSON.stringify([vi.plugin, vi.release, vi.app, vi.readme])}`);
+  if (new Set([vi.plugin, vi.pre, vi.app, vi.readme]).size !== 1) bad.push(`Versionen uneinheitlich: ${JSON.stringify([vi.plugin, vi.pre, vi.app, vi.readme])}`);
+  if (cmpVer(vi.release, vi.pre) > 0) bad.push('release.cfg neuer als prerelease.cfg');
   const t = sh(`git rev-parse -q --verify 'refs/tags/v${v}^{commit}'`);
   if (t.code) return FAIL(`Tag v${v} fehlt lokal` + (bad.length ? ' | ' + bad.join(' | ') : ''));
   const head = sh('git rev-parse HEAD').out; if (t.out !== head) bad.push(`Tag v${v} (${t.out.slice(0, 7)}) zeigt nicht auf HEAD (${head.slice(0, 7)})`);
@@ -90,6 +91,7 @@ def({ id: 'QC-M09', stage: 'pm', role: M, must: true, mode: 'auto', title: 'GitH
   if (r.code) return FAIL(`gh release view v${v}: ${(r.err || r.out).slice(0, 100)}`);
   const j = JSON.parse(r.out), bad = [];
   if (j.isDraft) bad.push('Release ist Entwurf');
+  if (j.isPrerelease !== (cmpVer(v, versionInfo().release) > 0)) bad.push('Prerelease-Status passt nicht zu den Updatekanaelen');
   const a = (j.assets || []).find(x => x.name === `loxpanelfav-${v}.zip`);
   if (!a) bad.push(`Asset loxpanelfav-${v}.zip fehlt`); else { const zip = `${REL}/loxpanelfav-${v}.zip`; if (exists(zip) && fs.statSync(zip).size !== a.size) bad.push(`Asset ${a.size} B != lokales ZIP ${fs.statSync(zip).size} B`); }
   if (!(j.body || '').trim()) bad.push('Release-Notes leer (Changelog erwartet)');
@@ -97,10 +99,12 @@ def({ id: 'QC-M09', stage: 'pm', role: M, must: true, mode: 'auto', title: 'GitH
 });
 
 def({ id: 'QC-M10', stage: 'pm', role: K, must: true, mode: 'auto', title: 'Update-Quelle: ARCHIVEURL (Release-ZIP) erreichbar; raw release.cfg + prerelease.cfg auf main (und release.cfg auf Spiegel) liefern die Version (raw-Cache bis 5 min)' }, async () => {
-  const v = ver(), bad = [], warn = [];
-  const au = (/^ARCHIVEURL=(\S+)/m.exec(read(`${R}/release.cfg`)) || [])[1] || '';
-  const z = await http(au, { head: true, method: 'HEAD', redirect: 'manual' });
-  if (![200, 302].includes(z.status)) bad.push('ARCHIVEURL -> ' + (z.status || z.err));
+  const v = ver(), stable = versionInfo().release, bad = [], warn = [];
+  for (const cfg of ['release.cfg', 'prerelease.cfg']) {
+    const au = (/^ARCHIVEURL=(\S+)/m.exec(read(`${R}/${cfg}`)) || [])[1] || '';
+    const z = await http(au, { head: true, method: 'HEAD', redirect: 'manual' });
+    if (![200, 302].includes(z.status)) bad.push(`${cfg} ARCHIVEURL -> ` + (z.status || z.err));
+  }
   const hp = await http(`https://raw.githubusercontent.com/${REPO_SLUG}/main/prerelease.cfg`);
   const gp = hp.ok ? (/^VERSION=(\S+)/m.exec(hp.text()) || [])[1] : null;
   if (!hp.ok) bad.push(`raw prerelease.cfg -> ${hp.status || hp.err}`); else if (gp !== v) warn.push(`raw prerelease.cfg liefert ${gp} statt ${v}`);
@@ -108,10 +112,10 @@ def({ id: 'QC-M10', stage: 'pm', role: K, must: true, mode: 'auto', title: 'Upda
     const h = await http(`https://raw.githubusercontent.com/${REPO_SLUG}/${br}/release.cfg`);
     if (!h.ok) { bad.push(`raw ${br} -> ${h.status || h.err}`); continue; }
     const got = (/^VERSION=(\S+)/m.exec(h.text()) || [])[1];
-    if (got !== v) warn.push(`raw ${br} liefert ${got} statt ${v} (Cache bis ca. 5 min? sonst Push pruefen)`);
+    if (got !== stable) warn.push(`raw ${br} liefert ${got} statt ${stable} (Cache bis ca. 5 min? sonst Push pruefen)`);
   }
   if (bad.length) return FAIL(bad.join(' | '));
-  return warn.length ? WARN(warn.join(' | ')) : PASS(`Release-ZIP ${z.status}, raw main + Spiegel + prerelease = ${v}`);
+  return warn.length ? WARN(warn.join(' | ')) : PASS(`Beide ZIPs erreichbar, stabil ${stable}, prerelease ${v}, main + Spiegel stimmen`);
 });
 
 def({ id: 'QC-M11', stage: 'pm', role: M, must: true, mode: 'auto', title: 'Dashboard: dash-Projekt loxpanel-favoriten zeigt die Repo-Version' }, () => {
