@@ -6712,9 +6712,11 @@ class App:
 
     def _alarm_next_text(self, c: dict) -> str:
         """Naechste Weckzeit eines Weckers (AlarmClock) als Text. Loxone liefert
-        `nextEntryTime` in Sekunden seit dem 1.1.2009 (lokale Wanduhr); 0/leer =
-        kein aktiver Eintrag. Ausgabe z.B. 'Heute 06:30', 'Morgen 06:30',
-        'Mo 06:30' oder '24.12. 06:30'."""
+        `nextEntryTime` in Sekunden seit dem 1.1.2009 in UTC (wie beim Briefkasten,
+        dort Z. mit _EPOCH_2009); als Wanduhr gelesen stand die Kachel um den
+        UTC-Abstand zu frueh. Umrechnung ueber Unix-Zeit in die Ortszeit des
+        Miniservers (_ms_dt). 0/leer = kein aktiver Eintrag. Ausgabe z.B.
+        'Heute 06:30', 'Morgen 06:30', 'Mo 06:30' oder '24.12. 06:30'."""
         v = self._state(c, "nextEntryTime")
         try:
             ts = int(float(v))
@@ -6722,8 +6724,10 @@ class App:
             return ""
         if ts <= 0:
             return ""
-        # Wert als Wanduhr behandeln (TZ-neutral): 2009-Basis + Sekunden.
-        dt = datetime(2009, 1, 1) + timedelta(seconds=ts)
+        try:
+            dt = _ms_dt(_EPOCH_2009 + ts)
+        except (OverflowError, OSError, ValueError):   # ausserhalb dessen, was die Uhr kennt
+            return ""
         today = _ms_now_dt().date()
         d = (dt.date() - today).days
         hm = dt.strftime("%H:%M")
