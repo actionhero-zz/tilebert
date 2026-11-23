@@ -1525,6 +1525,20 @@ def _apply_order(uuids: list, order: list | None) -> list:
     return chosen + [u for u in uuids if u not in chosen_set]
 
 
+def _nach_reihe(werte: list, reihe) -> list:
+    """werte in der Folge von reihe, der Reihenfolge, die sich eine Seite beim
+    Aufruf gemerkt hat (App.aufruf_route: aktive Mitglieder zuerst, eingefroren,
+    damit beim Live-Tick keine Zeile springt). Was reihe nicht kennt (seitdem
+    dazugekommen), steht dahinter in der bisherigen Folge. Ohne reihe (keine
+    Liste) unveraendert."""
+    if not isinstance(reihe, list):
+        return list(werte)
+    rang: dict = {}
+    for i, w in enumerate(reihe):
+        rang.setdefault(w, i)
+    return sorted(werte, key=lambda w: rang.get(w, len(reihe)))
+
+
 def _clean(name: str) -> str:
     return re.sub(r"^[^0-9A-Za-zÄÖÜäöü]+", "", name or "").strip() or (name or "")
 
@@ -8216,7 +8230,7 @@ class App:
                             "other": [m for m in e["modes"] if m not in wd.values()]}]}
 
     def _view_control(self, uuid: str, rng: str | None = None, chart: bool = False,
-                      tab: str | None = None) -> dict:
+                      tab: str | None = None, reihe: list | None = None) -> dict:
         # Auch Unterbausteine (Lichtkreis einer Lichtsteuerung) haben eine Detailseite
         c = self.controls.get(uuid) or self._resolve_control(uuid) or {}
         if chart and (c.get("statistic") or c.get("statisticV2")):
@@ -8226,7 +8240,7 @@ class App:
             return self._with_head({"t": "view", "title": _clean(c.get("name")),
                     "route": {"view": "control", "id": uuid, "chart": 1, "range": cb.get("range") or STAT_DEFAULT_RANGE},
                     "blocks": blocks}, c)
-        v = self._audio_view(self._std_view(self._view_control_inner(uuid, tab)), c)
+        v = self._audio_view(self._std_view(self._view_control_inner(uuid, tab, reihe)), c)
         if c.get("isSecured") or (uuid not in self.controls and (self._parent_of(uuid) or {}).get("isSecured")):
             v["secured"] = True   # Client fragt vor Befehlen die Visu-PIN ab
         # Ebenso gesperrt (jLocked): oben steht, wer gesperrt hat und warum, die
@@ -9369,6 +9383,111 @@ class App:
             return (f"{n} scharf" if n else "Alle unscharf") if total else "Keine Anlagen"
         return ""
 
+    # Zentral-Listen, deren Mitglieder "an" sein koennen (Licht mit aktiver
+    # Stimmung, Zone spielt, Tor/Fenster offen, Alarmanlage scharf): ihre Seite
+    # zeigt die aktiven zuerst, eingefroren beim Aufruf (aufruf_route), damit
+    # beim Live-Tick keine Zeile springt. Jalousie kennt kein "an" und bleibt
+    # bei ihrer Abweichler-Sortierung. Der State je Mitglied, der den Stand
+    # sagt (_zentral_stand_da).
+    _ZENTRAL_STATE = {"CentralLightController": "activeMoods", "CentralAudioZone": "playState",
+                      "CentralGate": "position", "CentralWindow": "position", "CentralAlarm": "armed"}
+
+    def _zentral_mitglieder(self, c: dict) -> list[str]:
+        """UUIDs der Mitglieder eines Zentral-Bausteins (details.controls) in
+        der Folge der Struktur, nur die, die es in der Struktur gibt."""
+        return [m.get("uuid") for m in ((c.get("details") or {}).get("controls") or [])
+                if m.get("uuid") in self.controls]
+
+    def _zentral_mitglied_an(self, t: str, mu: str) -> bool:
+        """Ist das Mitglied mu einer Zentrale vom Typ t an - dieselbe Regel wie
+        die Zeile seiner Seite (_central_view/_central_list): Lichtsteuerung
+        mit aktiver Stimmung, Zone spielt, Tor/Fenster offen ab gerundet 1 %
+        (sonst stuende ein Fenster vorn, das "Geschlossen" zeigt), Alarmanlage
+        scharf. Zentralen ausserhalb _ZENTRAL_STATE: nie."""
+        mc = self.controls.get(mu) or {}
+        if t == "CentralLightController":
+            return bool(LIGHT.render(self._with_uuid(mu), self.states)["on"])
+        if t == "CentralAudioZone":
+            return self._audio_playing(mc)
+        if t in ("CentralGate", "CentralWindow"):
+            try:
+                return round(float(self._state(mc, "position") or 0) * 100) > 0
+            except (TypeError, ValueError):
+                return False
+        if t == "CentralAlarm":
+            return bool(self._state(mc, "armed"))
+        return False
+
+    def _zentral_stand_da(self, c: dict) -> bool:
+        """Kennt der Server schon, ob die Mitglieder einer Zentrale an sind: Hat
+        der State aus _ZENTRAL_STATE bei ALLEN Mitgliedern, die ihn in der
+        Struktur haben, einen Wert? Vorher, etwa gleich nach einem Neustart,
+        ergaebe eine Reihenfolge nur die Folge der Struktur; die Startwerte
+        kommen in mehreren Tabellen, ein Mitglied ohne Wert stuende sonst fest
+        hinter einem, das schon einen hat. Mitglieder ohne den State melden nie
+        einen Wert und zaehlen nicht."""
+        name = self._ZENTRAL_STATE.get(c.get("type"))
+        mit = [self.controls[mu] for mu in self._zentral_mitglieder(c)
+               if (self.controls[mu].get("states") or {}).get(name)]
+        return bool(name) and bool(mit) and all(self._state(m, name) is not None for m in mit)
+
+    def _zentral_reihe(self, c: dict) -> list[str] | None:
+        """Reihenfolge der Seite eines Zentral-Bausteins: die Mitglieder, die
+        an sind, zuerst (wie bisher beim Live-Sort), sonst und untereinander
+        wie in der Struktur. None fuer Zentralen ohne "an" (Strukturfolge)."""
+        t = c.get("type")
+        if t not in self._ZENTRAL_STATE:
+            return None
+        return sorted(self._zentral_mitglieder(c), key=lambda mu: not self._zentral_mitglied_an(t, mu))
+
+    def _fenster_bits(self, c: dict) -> list[int]:
+        """Bitmaske je Fenster (details.windows) aus windowStates (mit Komma
+        getrennt); fehlt ein Wert oder ist er keine Zahl: 0."""
+        n = len((c.get("details") or {}).get("windows") or [])
+        codes = [x for x in str(self._state(c, "windowStates") or "").split(",") if x != ""]
+        bits = []
+        for i in range(n):
+            try:
+                bits.append(int(float(codes[i])) if i < len(codes) else 0)
+            except (ValueError, TypeError, OverflowError):
+                bits.append(0)
+        return bits
+
+    def _fenster_reihe(self, c: dict) -> list[int]:
+        """Reihenfolge der Fenster-/Tuerueberwachung als Positionen in
+        details.windows: offene, dann gekippte, dann der Rest - dieselbe
+        Sortierung, die die Seite bisher bei jedem Tick live machte."""
+        bits = self._fenster_bits(c)
+        return sorted(range(len(bits)), key=lambda i: 0 if bits[i] & 4 else (1 if bits[i] & 2 else 2))
+
+    def aufruf_route(self, route: dict) -> dict:
+        """Route, mit der eine Verbindung eine Seite aufruft (nav). Seiten, die
+        ihre aktiven Mitglieder zuerst zeigen (Zentralbausteine Licht/Audio/
+        Tor/Fenster/Alarm, Fenster-/Tuerueberwachung), merken sich dabei die
+        Reihenfolge von jetzt (reihe). Mit ihr rendert der Tick die Seite, bis
+        sie neu aufgerufen wird (auch ein Neuverbinden ruft sie neu auf): Wer
+        dort tippt, sieht keine Zeile springen. Gemerkt wird erst, wenn
+        Baustein und die States ALLER Mitglieder bekannt sind; kommt das nav
+        vorher (Neustart des Servers), traegt der Tick die Reihenfolge nach.
+        Eine reihe vom Client gilt nie; render() schickt sie nicht an die Visu.
+        Wirft nie: Ohne reihe ordnet die Seite beim Rendern selbst."""
+        r = {k: v for k, v in route.items() if k != "reihe"}
+        try:
+            uid = r.get("id")
+            c = self.controls.get(uid) if isinstance(uid, str) else None
+            reihe = None
+            if c and r.get("view") == "group" and r.get("kind") == "central" and self._zentral_stand_da(c):
+                reihe = self._zentral_reihe(c)
+            elif c and r.get("view") == "control" and c.get("type") == "WindowMonitor" \
+                    and self._state(c, "windowStates") is not None:
+                reihe = self._fenster_reihe(c)
+        except Exception:
+            log.exception("aufruf_route fehlgeschlagen fuer route %s", r)
+            reihe = None
+        if reihe is not None:
+            r["reihe"] = reihe
+        return r
+
     # Sammelaktionen der Zentralbausteine: je Mitglied ein bekannter Einzelbefehl
     _CENTRAL_ACT = {"lightoff": {"LightControllerV2": "changeTo/778"},
                     "up": {"Jalousie": "FullUp"}, "down": {"Jalousie": "FullDown"},
@@ -9408,6 +9527,12 @@ class App:
         """Zentralbaustein als Seite: Zusammenfassung gross, Mitglieder als
         Kacheln (antippen = Mitglied oeffnen), Sammelaktion(en) unten."""
         t = c.get("type")
+        # Aktive zuerst (Licht an, Zone spielt, offen, scharf), in der beim
+        # Aufruf gemerkten Reihenfolge (route reihe, aufruf_route): wer hier
+        # tippt, sieht keine Zeile springen. Ohne gemerkte Folge ordnet die
+        # Seite selbst (Jalousie ohne "an" bleibt in Strukturfolge).
+        reihe = route.get("reihe") if isinstance(route, dict) else None
+        uuids = _nach_reihe(uuids, reihe if isinstance(reihe, list) else self._zentral_reihe(c))
         items, on = [], 0
         its = [self._control_item(u, prof, show_room=True) for u in uuids]
         rooms = [it.get("room") or "" for it in its]
@@ -9452,8 +9577,8 @@ class App:
             items.sort(key=lambda x: x.get("_o") != first_open)
             for x in items:
                 x.pop("_o", None)
-        else:
-            items.sort(key=lambda x: not x["on"])   # Aktive zuerst (passt zur Zusammenfassung oben)
+        # Licht/Audio/Tor/Fenster/Alarm: die Folge ist oben schon "aktive
+        # zuerst" (gemerkt beim Aufruf), hier nicht mehr live sortieren.
         blocks = [{"k": "dhead", "room": "Zentral", "name": _clean(c.get("name"))},
                   {"k": "big", "text": summary},
                   {"k": "scenes", "items": items},
@@ -9498,7 +9623,9 @@ class App:
                 row["sub"] = (it.get("room") or "") if it.get("room") != x["label"] else ""
             n += 1 if row.get("on") else 0
             rows.append(row)
-        rows.sort(key=lambda r: not r.get("on"))
+        # Keine Live-Sortierung ("aktive zuerst") mehr: die Folge steht seit dem
+        # Aufruf der Seite fest (aufruf_route/_zentral_reihe, in _central_view
+        # angewendet) - sonst springt die Zeile weg, waehrend man tippen will.
         word = {"CentralAudioZone": "Zonen", "CentralAlarm": "Anlagen", "CentralGate": "Tore", "CentralWindow": "Fenster"}[t]
         summary = self._central_sum(t, n, len(rows)) if rows else "Keine Mitglieder"
         if t == "CentralAudioZone":
@@ -9882,22 +10009,26 @@ class App:
         return {"t": "view", "title": _clean(c.get("name")), "route": route, "anchor": "bottom",
                 "blocks": blocks}
 
-    def _view_control_inner(self, uuid: str, tab: str | None = None) -> dict:
+    def _view_control_inner(self, uuid: str, tab: str | None = None,
+                            reihe: list | None = None) -> dict:
         """Duenner Wrapper um _view_control_body: haengt die Kategoriefarbe
         (falls gesetzt) einmalig zentral an JEDE Detailansicht an, statt sie
         einzeln in jeden der vielen 'hero'-Bloecke unten einzutragen. Client
         faerbt damit den Icon-Kreis passend zur Kategorie (an die Loxone-TPD-
         Optik angelehnt: farbige Icon-Kreise statt neutralem Grau)."""
-        r = self._view_control_body(uuid, tab)
+        r = self._view_control_body(uuid, tab, reihe)
         cc = self._cat_color(self.controls.get(uuid, {}).get("cat"))
         if cc and isinstance(r, dict) and "blocks" in r:
             r["catColor"] = cc
         return r
 
-    def _view_control_body(self, uuid: str, tab: str | None = None) -> dict:
+    def _view_control_body(self, uuid: str, tab: str | None = None,
+                           reihe: list | None = None) -> dict:
         c = self.controls.get(uuid) or self._resolve_control(uuid) or {}
         t = c.get("type")
         route = {"view": "control", "id": uuid}
+        if reihe is not None:
+            route["reihe"] = reihe   # gemerkte Reihenfolge (aufruf_route), render() schickt sie nicht mit
         if t == "SystemScheme":
             return self._view_scheme(uuid, c, route)
         if t == "LightControllerV2":
@@ -10011,13 +10142,18 @@ class App:
                     b = 0
                 ent = {"id": f"{uuid}:{i}", "icon": "blind", "on": bool(b & 6),
                        "label": _clean(w.get("name") or f"Fenster {i + 1}"),
-                       "val": wtext(b), "_r": 0 if b & 4 else (1 if b & 2 else 2)}
+                       "val": wtext(b)}
                 # Nur der Raum (Loxone: window.room = Raum-UUID), sonst der Einbauort
                 ent["room"] = (_clean((self.rooms.get(w.get("room")) or {}).get("name")) if w.get("room") else "") \
                     or _clean(w.get("installPlace"))
                 items.append(ent)
-            # Offene zuerst, dann gekippte, dann der Rest (sonst Loxone-Reihenfolge)
-            items.sort(key=lambda x: x.pop("_r"))
+            # Offene zuerst, dann gekippte, dann der Rest (sonst Loxone-Reihenfolge),
+            # in der beim Aufruf gemerkten Reihenfolge (route reihe, aufruf_route):
+            # schliesst jemand ein Fenster, springt keine Zeile mehr weg
+            reihe = route.get("reihe")
+            folge = _nach_reihe(list(range(len(items))),
+                                reihe if isinstance(reihe, list) else self._fenster_reihe(c))
+            items = [items[i] for i in folge]
             # Detail-Schema: grosser Wert, Zeile darunter, Fenster als reine Anzeige-Zeilen
             n_open = sum(1 for x in items if x["val"] == "offen")
             n_tilt = sum(1 for x in items if x["val"] == "gekippt")
@@ -10658,6 +10794,12 @@ class App:
                 "items": [self._control_item(uuid)]}
 
     def render(self, route: dict, prof: dict | None = None) -> dict:
+        out = self._render_route(route, prof)
+        if isinstance(out.get("route"), dict) and "reihe" in out["route"]:
+            out["route"] = {k: v for k, v in out["route"].items() if k != "reihe"}   # bleibt beim Server
+        return out
+
+    def _render_route(self, route: dict, prof: dict | None = None) -> dict:
         v = (route or {}).get("view", "tab")
         if v == "group":
             return self._view_group(route, prof)
@@ -10665,7 +10807,8 @@ class App:
             if route.get("entry") is not None:
                 return self._alarm_edit_view(route.get("id"), route.get("entry"))
             return self._view_control(route.get("id"), route.get("range"), bool(route.get("chart")),
-                                      route.get("tab") if isinstance(route.get("tab"), str) else None)
+                                      route.get("tab") if isinstance(route.get("tab"), str) else None,
+                                      route.get("reihe"))
         if v == "sources":
             return self._view_sources(route.get("id"))
         if v == "links":
@@ -11533,6 +11676,13 @@ class App:
             # Gleiche Ansicht (Route + Profil) nur EINMAL je Takt aufbauen, auch wenn
             # mehrere Panels sie zeigen - das Rendern ist der teuerste Teil des Takts.
             self._tick_memo = {}
+            for _ws, _rt in list(self.conn_route.items()):
+                if "reihe" not in _rt:
+                    # Seite vor Struktur oder States aufgerufen (Neustart des
+                    # Servers): Reihenfolge nachtragen, sobald sie feststeht
+                    _nach = self.aufruf_route(_rt)
+                    if "reihe" in _nach:
+                        self.conn_route[_ws] = _nach
             # Jedes Panel einzeln und GLEICHZEITIG beliefern (siehe _send_all):
             # ein haengendes Panel verzoegert nur sich selbst, nicht das ganze Haus.
             await asyncio.gather(*(self._push_conn(ws, route) for ws, route in list(self.conn_route.items())))
@@ -14483,7 +14633,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
             if not isinstance(data, dict):
                 continue
             if data.get("t") == "nav" and isinstance(data.get("route"), dict):
-                route = data["route"]
+                # Reihenfolge der Seite beim Aufruf merken (aktive zuerst); eine
+                # reihe vom Client faellt dabei weg
+                route = app.aufruf_route(data["route"])
                 app.conn_route[ws] = route
                 try:
                     view_msg = app.render(route, app.conn_prof.get(ws, prof))
@@ -14491,7 +14643,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     # Detailseite wirft -> nicht die Verbindung abreissen lassen
                     # (sonst Reconnect-Loop). Fehler loggen, Hinweis anzeigen.
                     log.exception("render() (nav) fehlgeschlagen fuer route %s", route)
-                    view_msg = {"t": "view", "title": "Fehler", "route": route,
+                    view_msg = {"t": "view", "title": "Fehler", "route": data["route"],
                                 "blocks": [{"k": "status", "text": "Diese Ansicht konnte nicht geladen werden."}]}
                 await app._send_or_drop(ws, view_msg)
                 # Auch die Navigation sendet am Tick vorbei — eintragen, sonst
