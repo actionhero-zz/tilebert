@@ -29,6 +29,7 @@ installierten Original-LoxPanel-Version**, ohne Kollision:
 
 ## Eigene Funktionen dieses Forks
 
+- **Stabiles Release (0.21.0)** — Erster stabiler Release seit 0.20.30; entspricht inhaltlich 0.20.48 (Gerät löschen ohne Neuladen) – alle Änderungen seit 0.20.31 siehe unten.
 - **Gerät löschen ohne Neuladen (0.20.48)** — Ein gelöschtes Gerät verschwindet sofort aus der Geräteliste (bisher erst nach manuellem Neuladen der Seite).
 - **Energiefluss harmonischer (0.20.47)** — Knoten, Symbole, Linien, Punkte und Schrift folgen jetzt einem Proportionssystem nach dem goldenen Schnitt; kleinere Knoten mit mehr Luft, lesbare Namen auch in der Dashboard-Kachel, Kennzahl „PV-Eigenverbrauch“ einzeilig.
 - **Verständlichere Texte bei „Verbindung“ (0.20.46)** — Gerätedetail: Adressfeld, Umzugs-Hinweis, adb-Freigabe und Fehlermeldungen erklären jetzt die Situation statt der Technik (DE/EN).
