@@ -80,6 +80,10 @@ class Prerelease(unittest.TestCase):
         a.strompreis_prognose = lambda *args: ([(now, now+3600, -2.5, True)], False)
         view = a._view_control('s')
         self.assertTrue(any(b['k'] == 'spotform' for b in view['blocks']))
+        self.assertNotIn('bgIcon', view)
+        self.assertFalse(any(b['k'] == 'chart' for b in view['blocks']))
+        self.assertEqual(view['blocks'][0]['acts'][0]['nav']['tab'], 'prognose')
+        view = a._view_control('s', tab='prognose')
         charts = [b for b in view['blocks'] if b['k'] == 'chart']
         self.assertEqual([b['kind'] for b in charts], ['analog', 'digital'])
         self.assertEqual(charts[0]['series'][0]['pts'][0][1], -2.5)

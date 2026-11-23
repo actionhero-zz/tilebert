@@ -283,7 +283,7 @@ log = logging.getLogger("loxpanel.webvisu")
 # kennt sie nicht). Bei jedem Release-Bump hier mitziehen - einziger
 # zuverlaessiger Weg zu pruefen, ob ein Update den Container tatsaechlich neu
 # gebaut hat (z.B. bei einem haengenden Docker-Build-Cache).
-APP_VERSION = "0.21.1"
+APP_VERSION = "0.21.2"
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
@@ -8274,6 +8274,10 @@ class App:
                       tab: str | None = None, reihe: list | None = None) -> dict:
         # Auch Unterbausteine (Lichtkreis einer Lichtsteuerung) haben eine Detailseite
         c = self.controls.get(uuid) or self._resolve_control(uuid) or {}
+        if tab == "prognose" and c.get("type") == "SpotPriceOptimizer":
+            return self._with_head({"t": "view", "title": _clean(c.get("name")),
+                    "route": {"view": "control", "id": uuid, "tab": "prognose"},
+                    "blocks": self.prognose_bloecke(uuid, c)}, c)
         if chart and (c.get("statistic") or c.get("statisticV2")):
             # Eigene Verlaufs-Seite (aus der Aktionsreihe der Detailseite geoeffnet)
             cb = self.chart_blocks(uuid, rng) or {}
@@ -8714,7 +8718,6 @@ class App:
         einsatz = self._spot_naechster_einsatz(uuid, c)
         if einsatz:
             blocks.append({"k": "status", "text": einsatz})
-        blocks += self.prognose_bloecke(uuid, c)
         # Bedarf und Zeitraum fuellen die Vorlage von "Zyklus starten" (Formular);
         # gibt die Logik einen vor, steht sein Wert fest darin (beim Bedarf 0)
         stufen, vorlage = [], {}
@@ -8743,7 +8746,9 @@ class App:
         if stufen or bis:
             blocks.append({"k": "spotform", "uuid": ua, "fields": stufen,
                            "tmpl": tmpl, "cancel": bool(bis)})
-        return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
+        return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks,
+                "side": [{"icon": "chart", "label": "Prognose",
+                          "nav": {"view": "control", "id": uuid, "tab": "prognose"}}]}
 
     def _spot_num(self, c, name):
         return self._num(self._state(c, name))
@@ -9438,7 +9443,7 @@ class App:
     _SPECIAL_KINDS = {"dim", "scenes", "shade", "title", "alarmlist", "video", "favs",
                       "cover", "eflow", "slider", "chart", "web", "state", "audiomid",
                       "log", "kpis", "alarmedit", "ist", "sline",
-                      "mlist", "msld", "mseg", "mline", "mhero"}
+                      "mlist", "msld", "mseg", "mline", "mhero", "spotform"}
 
     # Symbole der Nebenaktionen (Knopf oeffnet eine Unterseite), von links nach rechts
     _SIDE_ORDER = ["list", "link", "chart"]

@@ -29,11 +29,11 @@ try {
   await page.locator('[name=bedarf]').fill('0');
   await page.locator('[type=submit]').click();
   assert.equal(await page.evaluate(()=>window._commands.length),1);
-  page.once('dialog',dialog=>dialog.dismiss());
   await page.locator('[data-cancel]').click();
+  await page.locator('.spotask [value=no]').last().click();
   assert.equal(await page.evaluate(()=>window._commands.length),1);
-  page.once('dialog',dialog=>dialog.accept());
   await page.locator('[data-cancel]').click();
+  await page.locator('.spotask [value=yes]').click();
   assert.deepEqual(await page.evaluate(()=>window._commands.at(-1)),['test','cancel']);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>480),false);
   await page.evaluate(()=>{ view.gesperrt='Wartung'; renderPanel(view.blocks); });

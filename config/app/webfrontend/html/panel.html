@@ -2329,12 +2329,22 @@
   .amid .amt .agrp{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:15px;margin-top:6px;}
   .amt .agrp svg{width:16px;height:16px;flex:none;} .amt .agrp i{font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   @media (max-width:420px){ .brow.transport:has(.mini) .btn.icon:not(.big):not(.mini){width:50px;height:50px;} }
+  .grid.panel:has(.spotform)>.pantop{flex:1 1 0;gap:4px;justify-content:flex-start;}
+  .grid.panel:has(.spotform) .status{font-size:15px;line-height:1.2;padding:0 6px;}
+  .grid.panel:has(.spotform) .pbig{padding:2px 8px;}
   .spotform{align-self:stretch;width:100%;max-width:640px;margin-inline:auto;}
-  .spotform fieldset{border:0;display:flex;flex-direction:column;gap:12px;min-width:0;}
-  .spotform label{display:flex;flex-direction:column;gap:4px;}
-  .spotform input{font:inherit;font-size:max(1rem,1em);min-height:48px;padding:8px;color:inherit;background:var(--bg);border:1px solid var(--muted);border-radius:8px;}
-  .spotform .sbtn{width:auto;min-height:48px;padding-inline:16px;}
-  .spotform :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .spotform fieldset{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .spotform label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:15px;}
+  .spotform input{font:inherit;font-family:var(--font-num);font-size:18px;font-variant-numeric:tabular-nums;width:6em;min-height:44px;padding:8px;color:var(--ink);background:var(--tile);border:0;border-radius:var(--r-m);}
+  .spotform p{margin:0;font-size:13px;color:var(--muted);}
+  .spotform :focus-visible,.spotask :focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+  .spotask{border:0;padding:0;margin:auto;background:transparent;color:var(--ink);max-width:100%;max-height:100%;overscroll-behavior:contain;}
+  .spotask::backdrop{background:color-mix(in srgb,var(--ink) 45%,transparent);overflow:hidden;overscroll-behavior:contain;}
+  .spotask .pinbox{box-shadow:none;}
+  .spotask .pinx{border:0;color:inherit;}
+  .spotask h1{margin:0;}
+  .spotask p{font-size:15px;margin:0;}
+
 </style>
 </head>
 <body>
@@ -2701,6 +2711,7 @@ function lpToast(id, text, level, secs){
 }
 function closeSheets(){
   ['wxSheet','stSheet'].forEach(id=>{ const o=el(id); if(o) o.hidden=true; });
+  const ask=document.querySelector('.spotask'); if(ask) ask.close();
   const p=document.querySelector('.pinov'); if(p&&p._cancel) p._cancel();
   closeMenu();
 }
@@ -2807,7 +2818,7 @@ function crumbJump(i){
 const _secAl={};
 function secAlarm(m){
   // Ton (falls fuer dieses Panel an): bis Stumm/Quittieren/Ausblenden oder Alarm-Ende
-  if(m.on){ _secAl[m.id]=m; wake(); if(m.sound && sndOn('alarm')) toneOn('sec:'+m.id); } else { delete _secAl[m.id]; toneOff('sec:'+m.id); }
+  if(m.on){ const ask=document.querySelector('.spotask'); if(ask) ask.close(); _secAl[m.id]=m; wake(); if(m.sound && sndOn('alarm')) toneOn('sec:'+m.id); } else { delete _secAl[m.id]; toneOff('sec:'+m.id); }
   secRender();
 }
 function secRender(){
@@ -2841,6 +2852,7 @@ function secRender(){
 let _saverPrevStack=null;
 function saverNav(route){ hideSaver(); _saverPrevStack=stack.filter(x=>x.view!=='saver'); stack=[{view:'saver'}]; _crumbs.length=0; nav(route); }
 function back(){
+  const ask=document.querySelector('.spotask[open]'); if(ask){ ask.close(); return; }
   if(stack.length>1){
     zoomBack();
     stack.pop(); _crumbs.length=stack.length;
@@ -2902,7 +2914,7 @@ function askPin(cb,msg){
 let DEV_TOK='', DEV_BTN=false;
 const DS={el:null, d:null, view:'', panelSel:null, idle:0, q:Promise.resolve(), err:''};
 const DS_IDLE_MS=60000;
-const DS_EN={"Zyklus":"Cycle","Bedarf":"Demand","Zeitraum":"Period","Mindestlaufzeit":"Minimum runtime","von der Logik vorgegeben":"Defined by logic","Zyklus starten":"Start cycle","Zyklus abbrechen":"Cancel cycle","Zyklus wirklich abbrechen?":"Really cancel the cycle?",'Gesperrt':'Locked','Typ nicht unterstützt':'Type not supported','Senden':'Send','Zeichen / ? # \\ sind nicht möglich':'Characters / ? # \\ are not possible','Rot':'Red','Orange':'Orange','Gelb':'Yellow','Grün':'Green','Türkis':'Cyan','Blau':'Blue','Violett':'Violet','Pink':'Pink','Einstellungen':'Settings','Einmal':'Once','Täglich':'Daily','Aktiv':'Active','Abbrechen':'Cancel','Übernehmen':'Apply','Effekte':'Effects','Animation':'Animation','Keine':'None','Mittel':'Medium','Viel':'High',
+const DS_EN={"Zyklus":"Cycle","Bedarf":"Demand","Zeitraum":"Period","Mindestlaufzeit":"Minimum runtime","von der Logik vorgegeben":"Defined by logic","Zyklus starten":"Start cycle","Zyklus abbrechen":"Cancel cycle","Zyklus wirklich abbrechen?":"Really cancel the cycle?","Der geplante Zyklus wird beendet.":"The scheduled cycle will end.","Weiterlaufen lassen":"Keep running","Schließen":"Close",'Gesperrt':'Locked','Typ nicht unterstützt':'Type not supported','Senden':'Send','Zeichen / ? # \\ sind nicht möglich':'Characters / ? # \\ are not possible','Rot':'Red','Orange':'Orange','Gelb':'Yellow','Grün':'Green','Türkis':'Cyan','Blau':'Blue','Violett':'Violet','Pink':'Pink','Einstellungen':'Settings','Einmal':'Once','Täglich':'Daily','Aktiv':'Active','Abbrechen':'Cancel','Übernehmen':'Apply','Effekte':'Effects','Animation':'Animation','Keine':'None','Mittel':'Medium','Viel':'High',
   'Kontrast':'Contrast','Lichtszenen':'Light scenes','Werte groß':'Large values','Animierte Symbole':'Animated icons','‹ Zurück':'‹ Back','Panel':'Panel','Töne':'Sounds','Klingel':'Doorbell','Alarm':'Alarm','Wecker':'Alarm clock',
   'Hinweis':'Notice','Tipp':'Tap','Nachts abdunkeln':'Dim at night','Präsenzerkennung':'Presence detection','Helligkeit':'Brightness','Auto':'Auto','Fest':'Fixed',
   'Standard':'Default','Helligkeit fest':'Fixed brightness','geändert':'changed','Auf Standard zurücksetzen':'Reset to default','Alarm ausschalten?':'Turn alarm off?',
@@ -3936,11 +3948,31 @@ function paintCharts(g,blocks){
   blocks.filter(b=>b.k==='chart').forEach((b,i)=>{ if(els[i]) paintChart(els[i],b); });
 }
 function spotFormHtml(b){
-  return '<form class="spotform" data-spot="'+esc(b.uuid)+'"><fieldset'+(view&&view.gesperrt?' disabled':'')+'><legend>'+esc(dsT('Zyklus'))+'</legend>'+
+  return '<form class="spotform" data-spot="'+esc(b.uuid)+'" aria-label="'+esc(dsT('Zyklus'))+'"><fieldset'+(view&&view.gesperrt?' disabled':'')+'>'+
     b.fields.map(f=>f.name ? '<label>'+esc(dsT(f.label))+' (h)<input type="number" name="'+esc(f.name)+'" min="'+f.min+'" step="'+f.step+'" value="'+f.value+'" required></label>' :
-      '<p>'+esc(dsT(f.label))+': '+esc(String(f.value))+' h'+(f.sub?' · '+esc(dsT(f.sub)):'')+'</p>').join('')+
-    (b.tmpl?'<button type="submit" class="sbtn">'+esc(dsT('Zyklus starten'))+'</button>':'')+
-    (b.cancel?'<button type="button" class="sbtn" data-cancel>'+esc(dsT('Zyklus abbrechen'))+'</button>':'')+'</fieldset></form>';
+      '<p>'+esc(dsT(f.label))+': '+esc(Number(f.value).toLocaleString(LANG||'de'))+' h'+(f.sub?' · '+esc(dsT(f.sub)):'')+'</p>').join('')+
+    '<div class="brow act '+(b.tmpl&&b.cancel?'n2':'n1')+'">'+
+    (b.tmpl?'<button type="submit" class="btn">'+esc(dsT('Zyklus starten'))+'</button>':'')+
+    (b.cancel?'<button type="button" class="btn" data-cancel>'+esc(dsT('Zyklus abbrechen'))+'</button>':'')+'</div></fieldset></form>';
+}
+function spotCancel(uuid){
+  if(view&&view.gesperrt) return;
+  const ask=document.createElement('dialog'), route=key(view.route), secured=view.secured;
+  ask.className='spotask'; ask.setAttribute('aria-labelledby','spotask-title'); ask.setAttribute('closedby','any');
+  ask.innerHTML='<form method="dialog" class="pinbox"><div class="pinhd"><h1 class="pinttl" id="spotask-title">'+esc(dsT('Zyklus wirklich abbrechen?'))+'</h1><button class="pinx" value="no" aria-label="'+esc(dsT('Schließen'))+'">✕</button></div><p>'+esc(dsT('Der geplante Zyklus wird beendet.'))+'</p><div class="brow act n2"><button class="btn" value="no" autofocus>'+esc(dsT('Weiterlaufen lassen'))+'</button><button class="btn" value="yes">'+esc(dsT('Zyklus abbrechen'))+'</button></div></form>';
+  ask.addEventListener('close',()=>{
+    const yes=ask.returnValue==='yes'; ask.returnValue=''; document.body.appendChild(nightLayer()); ask.remove();
+    if(yes&&view&&key(view.route)===route&&!view.gesperrt) sendCmd(uuid,'cancel',secured);
+  });
+  if(!('closedBy' in HTMLDialogElement.prototype)){
+    const outside=e=>{const r=ask.getBoundingClientRect();return e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom;};
+    let down=false; ask.addEventListener('pointerdown',e=>{down=outside(e);});
+    ask.addEventListener('pointerup',e=>{if(down&&outside(e))ask.close();});
+  }
+  document.querySelector('.screen').appendChild(ask); sheetFit(ask,false);
+  sheetSwipe(ask.firstElementChild,()=>ask.close());
+  // Nachtabdunklung bleibt auch ueber der nativen Dialog-Ebene.
+  ask.appendChild(nightLayer()); ask.showModal();
 }
 function spotFormBind(g,blocks,draft){
   const b=blocks.find(b=>b.k==='spotform'), f=g.querySelector('.spotform'); if(!b||!f) return;
@@ -3948,8 +3980,7 @@ function spotFormBind(g,blocks,draft){
   f.addEventListener('submit',e=>{ e.preventDefault(); if(!b.tmpl||(view&&view.gesperrt)||!f.reportValidity()) return;
     let cmd=b.tmpl; for(const n of f.elements) if(n.name) cmd=cmd.replace('{'+n.name+'}',String(n.valueAsNumber));
     if(!cmd.includes('{')) sendCmd(b.uuid,cmd,view&&view.secured); });
-  const cancel=f.querySelector('[data-cancel]'); if(cancel) cancel.addEventListener('click',()=>{
-    if(!(view&&view.gesperrt)&&window.confirm(dsT('Zyklus wirklich abbrechen?'))) sendCmd(b.uuid,'cancel',view&&view.secured); });
+  const cancel=f.querySelector('[data-cancel]'); if(cancel) cancel.addEventListener('click',()=>spotCancel(b.uuid));
 }
 function renderPanel(blocks){
   const oldSpot=el('grid').querySelector('.spotform');
