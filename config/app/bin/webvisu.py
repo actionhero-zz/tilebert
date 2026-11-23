@@ -991,6 +991,8 @@ PARTIAL_TYPES = {"Intercom"}   # Intercom: kein Gegensprechen (Ausbau-Runden 1-3
 # = nicht gesperrt. Gesperrt nimmt der Baustein keine Befehle an.
 SPERRE_DURCH = {1: "über die Visualisierung", 2: "durch die Logik"}
 SPERRE_KURZ = "Gesperrt"
+# Zweitzeile einer Kachel, deren Bausteintyp tilebert nicht kennt
+TYP_UNBEKANNT = "Typ nicht unterstützt"
 
 
 @functools.lru_cache(maxsize=256)
@@ -6956,7 +6958,7 @@ class App:
                 except Exception as err:  # Diagnose darf nie an einem Baustein scheitern
                     log.warning("types_overview: %s (%s): %s", name, t, err)
                     it = {}
-                if any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
+                if not it.get("unbekannt") and any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
                     e["supported"] = True
         out, dead = [], []
         for t in sorted(types, key=str.lower):
@@ -7549,6 +7551,11 @@ class App:
         # Status-Bausteine antippbar machen -> grosse Wertseite
         if t in STATUS_BIG and "nav" not in it and "cmd" not in it:
             it["nav"] = {"view": "control", "id": uuid}
+        # Typ, den tilebert nicht kennt: sagen statt einer leeren Kachel. Der
+        # Text beschreibt nur; ausblenden wie jede Kachel ueber hide.
+        # unbekannt: /api/types zaehlt ihn trotz Zweitzeile als nicht unterstuetzt
+        if not any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
+            it.update(sublabel=TYP_UNBEKANNT, unbekannt=True)
         # Gesperrt (jLocked): die Kachel schaltet nicht und zeigt keine
         # Mini-Tasten; ein Tipp oeffnet die Detailseite, die nennt, wer
         # gesperrt hat und warum
