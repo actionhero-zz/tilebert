@@ -19,6 +19,7 @@ import asyncio
 import calendar
 import contextlib
 import copy
+import functools
 import gzip
 import hashlib
 import hmac
@@ -983,6 +984,31 @@ def _kurz_modus(nm):
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
 PARTIAL_TYPES = {"Intercom"}   # Intercom: kein Gegensprechen (Ausbau-Runden 1-3, 10/2026)
+# Gesperrte Bausteine (Strukturdoku "Locking and Unlocking Controls", seit
+# 11.3.2.11): details.jLockable sagt, ob ein Baustein sich sperren laesst, der
+# Text-State jLocked haelt bei einer Sperre ein JSON {locked, reason}. locked:
+# 0 nicht gesperrt, 1 ueber die Visualisierung, 2 durch die Logik; leerer Text
+# = nicht gesperrt. Gesperrt nimmt der Baustein keine Befehle an.
+SPERRE_DURCH = {1: "über die Visualisierung", 2: "durch die Logik"}
+SPERRE_KURZ = "Gesperrt"
+
+
+@functools.lru_cache(maxsize=256)
+def _sperre_lesen(text: str) -> tuple | None:
+    """(locked, Grund) aus dem Text des States jLocked, None = nicht gesperrt.
+    Zwischengespeichert, denn jede Kachel fragt bei jedem Rendern."""
+    try:
+        d = json.loads(text) if text else None
+    except ValueError:
+        return None
+    if not isinstance(d, dict):
+        return None
+    art = d.get("locked")
+    if isinstance(art, bool):
+        art = int(art)
+    if not isinstance(art, int) or not art:
+        return None
+    return art, str(d.get("reason") or "").strip()
 # Panikalarm (AalEmergency): State status -> Anzeige (Structure File 16.0)
 AAL_STATUS = {0: "Bereit", 1: "Notruf!", 2: "Gesperrt", 3: "Pausiert"}
 # NFC Code Touch: Zutrittsart im Verlauf (history, Feld type) -> Medium; abgelehnt
@@ -2310,6 +2336,9 @@ class App:
         self._front_cal_due = 0.0
         self._front_session: aiohttp.ClientSession | None = None
         self.bell_map: dict[str, str] = {}
+        # Gesperrte Bausteine (jLocked): Befehlsempfaenger (Baustein, uuidAction,
+        # Unterbaustein) -> State-UUID von jLocked, die fuer ihn gilt
+        self.sperre_state: dict[str, str] = {}
         self.push_state: dict[str, str] = {}      # State-UUID "active" -> Taster-UUID
         self.push_hist: dict[str, list] = _pushlog_load()   # Taster-UUID -> letzte Ausloesungen
         self._bell_prev: dict[str, object] = {}
@@ -2517,6 +2546,22 @@ class App:
         self.bell_map = {}
         self.alarm_map = {}
         self.sec_map = {}
+        # Sperre (jLocked): je Befehlsempfaenger der State, der fuer ihn gilt.
+        # Ein Unterbaustein ohne eigenen jLocked folgt seinem Baustein.
+        self.sperre_state = {}
+
+        def _sperre_eintragen(u: str, c: dict, erbe: str | None) -> None:
+            st = (c.get("states") or {}).get("jLocked") or erbe
+            if st:
+                for k in (u, c.get("uuidAction")):
+                    if isinstance(k, str) and k:
+                        self.sperre_state[k] = st
+            for su, s in (c.get("subControls") or {}).items():
+                if isinstance(s, dict):
+                    _sperre_eintragen(su, s, st)
+        for _u, _c in self.controls.items():
+            if isinstance(_c, dict):
+                _sperre_eintragen(_u, _c, None)
         self.push_state = {}
         for _pu, _pc in self.controls.items():
             if _pc.get("type") == "Pushbutton":
@@ -2927,6 +2972,19 @@ class App:
         """Text-State, URL-dekodiert (Loxone liefert songName/artist prozentkodiert)."""
         v = self._state(control, name)
         return unquote(str(v)) if v not in (None, "") else ""
+
+    def _sperre_text(self, uuid) -> str | None:
+        """Sperre des Bausteins, an den ein Befehl an `uuid` geht (Baustein,
+        uuidAction oder Unterbaustein, Zuordnung in sperre_state): Klartext wie
+        "Gesperrt durch die Logik: Wartung", None = nicht gesperrt."""
+        su = self.sperre_state.get(uuid) if isinstance(uuid, str) else None
+        roh = self.states.get(su) if su else None
+        sp = _sperre_lesen(unquote(roh).strip()) if isinstance(roh, str) else None
+        if not sp:
+            return None
+        art, grund = sp
+        wer = SPERRE_DURCH.get(art)
+        return SPERRE_KURZ + (f" {wer}" if wer else "") + (f": {grund}" if grund else "")
 
     def _json_state(self, control: dict, name: str):
         """JSON-State (Loxone liefert Listen/Objekte als ggf. prozentkodierten
@@ -7495,6 +7553,14 @@ class App:
         # Status-Bausteine antippbar machen -> grosse Wertseite
         if t in STATUS_BIG and "nav" not in it and "cmd" not in it:
             it["nav"] = {"view": "control", "id": uuid}
+        # Gesperrt (jLocked): die Kachel schaltet nicht und zeigt keine
+        # Mini-Tasten; ein Tipp oeffnet die Detailseite, die nennt, wer
+        # gesperrt hat und warum
+        if self._sperre_text(uuid):
+            it["sublabel"] = SPERRE_KURZ
+            for k in ("cmd", "controls", "toggle", "tap", "prevnext", "updown", "dblOff"):
+                it.pop(k, None)
+            it.setdefault("nav", {"view": "control", "id": uuid})
         # Kategorie-Ampel: Bausteine mit an/aus-Zustand einer Kategorie mit
         # Zustandsfarben leuchten aktiv (on-Farbe) bzw. ok (off-Farbe). Analoge
         # Anzeigen, Zentralbausteine und Bausteine mit eigenem tone (Rauch/…)
@@ -8169,6 +8235,16 @@ class App:
         v = self._audio_view(self._std_view(self._view_control_inner(uuid, tab)), c)
         if c.get("isSecured") or (uuid not in self.controls and (self._parent_of(uuid) or {}).get("isSecured")):
             v["secured"] = True   # Client fragt vor Befehlen die Visu-PIN ab
+        # Ebenso gesperrt (jLocked): oben steht, wer gesperrt hat und warum, die
+        # Visu nimmt der Bedienung dieses Bausteins die Wirkung (Klasse
+        # "gesperrt" im Panel); was nur weiterfuehrt (nav), bleibt bedienbar
+        sperre = self._sperre_text(uuid)
+        if sperre:
+            v["gesperrt"] = sperre
+            bl = v.get("blocks")
+            if isinstance(bl, list):
+                i = next((n for n, b in enumerate(bl) if b.get("k") not in ("hero", "cover", "video")), len(bl))
+                bl.insert(i, {"k": "status", "text": sperre})
         # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
         # Aufzeichnung hat. Nur bei Block-Seiten; die Route traegt dann den Zeitraum.
         if (c.get("statistic") or c.get("statisticV2")) and isinstance(v.get("blocks"), list):
@@ -14362,6 +14438,17 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 if data is None:                 # Panel getrennt: Rest abgearbeitet, Ende
                     return
                 pin = data.get("pin")
+                sperre = app._sperre_text(str(data.get("uuid") or ""))
+                if sperre:
+                    # Gesperrter Baustein (jLocked) nimmt keine Befehle an: nicht
+                    # schicken, sondern sagen, warum. gesperrt: die Visu fragt
+                    # nicht erneut nach der PIN, die war nicht falsch.
+                    if data.get("id") is not None:
+                        await app._send_or_drop(ws, {"t": "cmdack", "id": data.get("id"), "ok": False})
+                    if pin is not None:
+                        await app._send_or_drop(ws, {"t": "cmdresult", "ok": False, "gesperrt": True})
+                    await app._send_or_drop(ws, {"t": "notify", "level": "warn", "secs": 4, "text": sperre})
+                    continue
                 if pin is None and app.needs_pin(str(data.get("uuid") or ""), str(data.get("cmd") or "")):
                     # Gesicherter Baustein ohne PIN (Weg ohne eigene Abfrage): nicht senden, PIN verlangen
                     if data.get("id") is not None:

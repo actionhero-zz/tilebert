@@ -514,6 +514,14 @@
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .hero .circle .rawico{width:38px;height:38px;object-fit:contain;}
   .status{text-align:center;color:var(--muted);font-size:14px;padding:2px 6px;}
+  /* Gesperrter Baustein (jLocked, view.gesperrt): seine Bedienung gedimmt und
+     ohne Wirkung. Was nur weiterfuehrt (nav-Zellen/-Szenen), bleibt bedienbar;
+     der Server lehnt Befehle an gesperrte Bausteine ohnehin ab. */
+  .panel.gesperrt .srow,.panel.gesperrt .istrow,.panel.gesperrt .psrow,.panel.gesperrt .pchips,
+  .panel.gesperrt .sline,.panel.gesperrt .favs,.panel.gesperrt .scenes .scene:not(.nav),
+  .panel.gesperrt .shade,.panel.gesperrt .dimcard:not(.ro),.panel.gesperrt .aedit,
+  .panel.gesperrt .alist,.panel.gesperrt .avol,.panel.gesperrt .minput,
+  .panel.gesperrt .brow .btn:not(.nav){opacity:.4;pointer-events:none;}
   .sltx{color:var(--muted);font-size:14px;min-width:0;}
   /* Wecker-Status: moderat gross (nicht so riesig wie .pbig), Raum als Unterzeile */
   .astat{text-align:center;font-size:30px;font-weight:600;line-height:1.18;letter-spacing:-.01em;padding:0 16px;}
@@ -2892,7 +2900,7 @@ function askPin(cb,msg){
 let DEV_TOK='', DEV_BTN=false;
 const DS={el:null, d:null, view:'', panelSel:null, idle:0, q:Promise.resolve(), err:''};
 const DS_IDLE_MS=60000;
-const DS_EN={'Senden':'Send','Zeichen / ? # \\ sind nicht möglich':'Characters / ? # \\ are not possible','Rot':'Red','Orange':'Orange','Gelb':'Yellow','Grün':'Green','Türkis':'Cyan','Blau':'Blue','Violett':'Violet','Pink':'Pink','Einstellungen':'Settings','Einmal':'Once','Täglich':'Daily','Aktiv':'Active','Abbrechen':'Cancel','Übernehmen':'Apply','Effekte':'Effects','Animation':'Animation','Keine':'None','Mittel':'Medium','Viel':'High',
+const DS_EN={'Gesperrt':'Locked','Typ nicht unterstützt':'Type not supported','Senden':'Send','Zeichen / ? # \\ sind nicht möglich':'Characters / ? # \\ are not possible','Rot':'Red','Orange':'Orange','Gelb':'Yellow','Grün':'Green','Türkis':'Cyan','Blau':'Blue','Violett':'Violet','Pink':'Pink','Einstellungen':'Settings','Einmal':'Once','Täglich':'Daily','Aktiv':'Active','Abbrechen':'Cancel','Übernehmen':'Apply','Effekte':'Effects','Animation':'Animation','Keine':'None','Mittel':'Medium','Viel':'High',
   'Kontrast':'Contrast','Lichtszenen':'Light scenes','Werte groß':'Large values','Animierte Symbole':'Animated icons','‹ Zurück':'‹ Back','Panel':'Panel','Töne':'Sounds','Klingel':'Doorbell','Alarm':'Alarm','Wecker':'Alarm clock',
   'Hinweis':'Notice','Tipp':'Tap','Nachts abdunkeln':'Dim at night','Präsenzerkennung':'Presence detection','Helligkeit':'Brightness','Auto':'Auto','Fest':'Fixed',
   'Standard':'Default','Helligkeit fest':'Fixed brightness','geändert':'changed','Auf Standard zurücksetzen':'Reset to default','Alarm ausschalten?':'Turn alarm off?',
@@ -3533,7 +3541,7 @@ function cellHtml(c,i){
   const minor=isChartCell(c);
   const inner=minor?cellIco(c.icon||'info'):(c.icon?cellIco(c.icon):esc(c.label));
   const tip=minor&&c.label?' title="'+esc(c.label)+'" aria-label="'+esc(c.label)+'"':'';
-  const cls='btn'+(c.icon?' icon':'')+(c.big?' big':'')+(c.mini?' mini':'')+(isChartCell(c)?' cht':'')+(c.menu?' toggler':'')+(c.on?' on':'');
+  const cls='btn'+(c.icon?' icon':'')+(c.big?' big':'')+(c.mini?' mini':'')+(isChartCell(c)?' cht':'')+(c.menu?' toggler':'')+(c.on?' on':'')+(c.nav&&!c.cmd?' nav':'');
   const al=!minor&&c.icon&&c.label?' aria-label="'+esc(c.label)+'"':'';
   return '<div class="'+cls+'" data-c="'+i+'"'+tip+al+' role="button">'+inner+'</div>';
 }
@@ -3935,6 +3943,8 @@ function renderPanel(blocks){
   el('grid').classList.remove('list','snapy','scheme','cells');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
+  // Gesperrter Baustein (jLocked): seine Bedienung ohne Wirkung (CSS oben)
+  el('grid').classList.toggle('gesperrt', !!(view && view.gesperrt));
   const g=el('grid');
   g.classList.toggle('wide', g.clientWidth>700);   // breite Detailseite (2 Flaechen) -> Szenen im 4er-Raster
   // anchor:bottom -> Anzeige (big/status) oben zentriert, Bedienung unten
@@ -4108,6 +4118,7 @@ function updatePanel(blocks){
   const g=el('grid');
   // Struktur anders als zuletzt gerendert (Zeile/Status/Favorit dazu oder weg,
   // Favoriten per roomfav/get nachgeliefert)? Dann komplett neu aufbauen.
+  g.classList.toggle('gesperrt', !!(view && view.gesperrt));
   if(g.dataset.bsig!==blockSig(blocks)){ renderPanel(blocks); return; }
   const rowBlocks=blocks.filter(b=>b.k==='row');
   const rows=[...g.querySelectorAll('.brow')];
@@ -4401,7 +4412,7 @@ function updateGrid(items){
     const body=n.querySelector('.body');
     if(body){ let subEl=body.querySelector('.sub');
       if(it.sublabel&&!it.big){ if(!subEl){ subEl=document.createElement('div'); subEl.className='sub'; body.appendChild(subEl); }
-        if(subEl.textContent!==it.sublabel) subEl.textContent=it.sublabel; }
+        if(subEl.textContent!==dsT(it.sublabel)) subEl.textContent=dsT(it.sublabel); }
       else if(subEl){ subEl.remove(); } }
     if(it.controls){ const tbs=n.querySelectorAll('.tctrls .tb');
       if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
@@ -4513,7 +4524,7 @@ function tileHtml(it, extraCls){
           (it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
           (it.spark&&it.spark.badge?'<div class="room tsline">'+esc(it.spark.badge)+'</div>':'')+
           '<div class="name"'+nst+'>'+esc(it.label)+'</div>'+
-          (it.sublabel&&!it.big?'<div class="sub">'+esc(it.sublabel)+'</div>':'')+'</div>'+
+          (it.sublabel&&!it.big?'<div class="sub">'+esc(dsT(it.sublabel))+'</div>':'')+'</div>'+
           (it.big?bigValHtml(it.big):'')+
           ctrls+
         '</div>';
@@ -4622,7 +4633,7 @@ function render(){
   if(view.layout==='cells'){ renderCells(themeSplit && !_widget && _lastWide); return; }
   el('grid').classList.remove('cells');
   el('grid').querySelectorAll('.svw-cam img').forEach(camStop);
-  el('grid').classList.remove('panel','bigpage','anchorbot','scheme');
+  el('grid').classList.remove('panel','bigpage','anchorbot','scheme','gesperrt');
   el('grid').classList.toggle('list', view.layout==='list');
   const items = view.items || [];
   const g = el('grid');
@@ -4661,7 +4672,7 @@ function renderCells(wide){
     g.querySelectorAll('.svw-cam img').forEach(camStop);
     g.innerHTML=''; g.classList.add('cells');
   }
-  g.classList.remove('panel','bigpage','anchorbot','scheme','list','snapy');
+  g.classList.remove('panel','bigpage','anchorbot','scheme','list','snapy','gesperrt');
   // Bildschirmgroesse wie bisher 480er-Einheiten (--cols/--rows steuern .screen)
   document.documentElement.style.setProperty('--cols', wide?4:2);
   document.documentElement.style.setProperty('--rows', 2);
@@ -4707,7 +4718,7 @@ function schemeValHtml(it,i){
 }
 function renderScheme(v){
   const g=el('grid');
-  g.classList.remove('panel','list','bigpage','anchorbot','snapy','cells');
+  g.classList.remove('panel','list','bigpage','anchorbot','snapy','cells','gesperrt');
   g.classList.add('scheme'); g.classList.remove('paged'); g.style.gridTemplateRows='';
   el('conn').classList.remove('vis');
   const sw=v.sw||1300, sh=v.sh||866, items=v.items||[];
@@ -5267,7 +5278,7 @@ function connect(){
         DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
     if(msg.t==='sec'){ SEC=new Set(msg.u||[]); return; }
     if(msg.t==='cmdresult'&&msg.needPin){ if(!document.querySelector('.pinov')&&msg.uuid&&msg.cmd) doSecure(msg.uuid,msg.cmd,''); return; }   // Server verlangt PIN (Weg ohne PIN-Abfrage)
-    if(msg.t==='cmdresult'){ if(msg.np){ pendingSecure=null; return; }   // 423: PIN stimmte, gerade nicht berechtigt (Meldung kommt als notify)
+    if(msg.t==='cmdresult'){ if(msg.np||msg.gesperrt){ pendingSecure=null; return; }   // 423 bzw. jLocked: PIN stimmte, nicht erneut fragen (Meldung kommt als notify)
       if(msg.ok===false && pendingSecure){ const p=pendingSecure; pendingSecure=null; doSecure(p.uuid,p.cmd,'PIN falsch – nochmal',p.rel); } else pendingSecure=null; return; }
     if(msg.t!=='view') return;
     clearSent();
