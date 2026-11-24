@@ -1014,6 +1014,11 @@
   /* Kamera-Widget: Pillen zum Durchschalten oben rechts, Name unten links */
   .svw-camsw .sv-cam-frame{flex:1;min-height:0;}
   .svw-camsw .camimg{opacity:0;transition:opacity .15s;} .svw-camsw .camimg.on{opacity:1;}
+  /* Statischer Ladeplatzhalter: keine Animation, keine zusaetzlichen Streams. */
+  .camskel{display:none;position:absolute;inset:0;place-content:center;justify-items:center;gap:10px;background:var(--tile);color:var(--ink);pointer-events:none;}
+  .camloading>.camskel{display:grid;}
+  .camskel svg{width:44px;height:44px;opacity:.18;}
+  .camskel::after{content:"";width:80px;height:8px;border-radius:var(--r-s);background:currentColor;opacity:.1;}
   /* Tuerstation-Widget: Aktionen (Tueroeffner, Licht) unten im Kamerabild */
   .icacts{position:absolute;left:8px;right:8px;bottom:8px;display:flex;gap:6px;z-index:2;justify-content:center;flex-wrap:wrap;}
   .icab{height:var(--pill-m);min-width:0;flex:0 1 auto;padding:0 12px;border-radius:var(--r-pill);border:1px solid rgba(255,255,255,.28);
@@ -1028,10 +1033,10 @@
   .camlbl{position:absolute;left:8px;bottom:8px;z-index:2;color:#fff;font-size:13px;padding:3px 9px;border-radius:var(--r-s);
     background:rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none;}
   .camlbl:empty{display:none;}
-  .svw-camsw .sv-cam-status{position:absolute;inset:0;display:grid;place-items:center;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none;}
+  .svw-camsw .sv-cam-status{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink);background:var(--tile);text-shadow:none;pointer-events:none;}
   .sv-cam-status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     color:var(--muted);font-size:12px;text-align:center;padding:10px;pointer-events:none;}
-  .sv-cam-status:empty{display:none;}
+  .sv-cam-status:empty,.svw-camsw .sv-cam-status:empty{display:none;}
   /* Groessere Panels/Tablets/Browser: die Front nutzt den Platz statt als kleine
      440px-Saeule in der Mitte zu haengen. Nur der Screensaver (.saver) skaliert
      hoch — die reine 480x480-Ansicht bleibt unveraendert kompakt. */
@@ -5619,6 +5624,7 @@ function svWidgetHTML(it, sd){
     if(!cams.length) return '<div class="svw-empty">Keine Kamera eingerichtet</div>';
     // je Kamera ein Bild uebereinander: Umschalten blendet nur um (bis 3 Kameras laufen parallel)
     return '<div class="sv-cam svw-cam svw-camsw" data-cams="'+esc(cams.map(c=>c.id).join(','))+'"><div class="sv-cam-frame">'+
+      '<div class="camskel" aria-hidden="true">'+svg(ICONS.cam)+'</div>'+
       cams.map((c,i)=>'<img class="sv-cam-img camimg" data-ci="'+i+'" alt="">').join('')+'<div class="sv-cam-status"></div><div class="camlbl"></div>'+
       (cams.length>1?'<div class="campills">'+cams.map((c,i)=>'<button type="button" class="campill" data-ci="'+i+'" title="'+esc(c.name||'')+'">'+(i+1)+'</button>').join('')+'</div>':'')+
       '</div></div>';
@@ -6229,11 +6235,13 @@ function camSwStart(cell){
   // Panels (Shelly, 2 GB) dauernd Dekodier- und Grafikspeicher. Der Server haelt das
   // letzte Bild jeder Kamera bereit, ein Umschalten zeigt also sofort ein Bild.
   const preload=false;
-  let cur=-1; const err={};
+  let cur=-1; const err={}, frame=cell.querySelector('.sv-cam-frame');
+  const loading=on=>{ if(frame.classList.contains('camloading')===on) return; frame.classList.toggle('camloading',on); frame.setAttribute('aria-busy',String(on)); };
   const start=i=>{ const img=imgs[i], c=cams[i]; if(!img||!c||img.getAttribute('src')) return;
+    err[i]=false; if(i===cur) loading(true);
     camStream(img, c.src, c.reconnectH||0,
-      ()=>{ err[i]=true; if(i===cur&&stat) stat.textContent='Kamera nicht erreichbar …'; },
-      ()=>{ err[i]=false; if(i===cur&&stat) stat.textContent=''; }); };
+      ()=>{ err[i]=true; if(i===cur){ loading(false); if(stat) stat.textContent='Kamera nicht erreichbar …'; } },
+      ()=>{ err[i]=false; if(i===cur){ loading(false); if(stat) stat.textContent=''; } }); };
   const show=i=>{ const c=cams[i]; if(!c) return; camSel[cell.dataset.k]=c.id;
     if(!preload && cur>=0 && cur!==i) camStop(imgs[cur]);
     cur=i; start(i);

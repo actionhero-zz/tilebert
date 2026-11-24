@@ -50,7 +50,7 @@ docker rm -f loxpanelfav > /dev/null 2>&1
 if which docker > /dev/null 2>&1; then
 	echo "<INFO> Starte tilebert (Favoriten-Fork)..."
 	if su -s /bin/bash loxberry -c "$BINDIR/loxpanel-ctl.sh start" && [ ! -f "$ARGV5/config/plugins/$ARGV3/loxpanelfav_portbelegt.cfg" ]; then
-		echo "<OK> tilebert laeuft – Oberflaeche: http://<LoxBerry-IP>:$PORT/config"
+		echo "<OK> tilebert laeuft – Oberflaeche: http://LOXBERRY-IP:$PORT/config (LOXBERRY-IP durch die IP-Adresse des LoxBerry ersetzen)."
 	else
 		echo "<WARN> tilebert nicht gestartet (Port $PORT belegt?) - Details auf der Plugin-Seite."
 	fi

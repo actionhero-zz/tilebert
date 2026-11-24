@@ -29,6 +29,8 @@ installierten Original-LoxPanel-Version**, ohne Kollision:
 
 ## Eigene Funktionen dieses Forks
 
+- **Kamera-Ladeplatzhalter (0.21.3)** — Beim Kamerawechsel überbrückt ein statischer Skeleton in Theme-Farben die Ladezeit bis zum ersten Bild. Ohne zusätzliche Timer, Animationen oder Streams; Kameratasten bleiben bedienbar. Die Installationsmeldung zeigt den IP-Platzhalter wieder vollständig. Stabiler Kanal bleibt 0.21.0.
+
 - **Strompreis-Seite auf kleinen Panels (0.21.2)** — Die Prognose öffnet über den Diagrammknopf im Kartenkopf; Preis und Zyklusbedienung passen ohne Scrollen auf 480 × 480 und 960 × 480. Lesbare Eingabefelder, Aktionspillen und Abbruchdialog folgen dem Designsystem. Behebt die Darstellungsfehler der Vorabversion 0.21.1; stabiler Kanal bleibt 0.21.0.
 
 - **Upstream-Verbesserungen (0.21.1)** — Wecker zeigen die nächste Weckzeit in Ortszeit. Gesperrte Bausteine zeigen den Grund und senden keine Befehle. Veraltete Icon-Quellen entfallen; unbekannte Bausteine werden gekennzeichnet. Zentralen und Fensterlisten behalten ihre Reihenfolge während Live-Updates. Klimaregler zeigen Anforderungen und die Anzahl betroffener Räume/Anlagen, bei unveränderter Sollwert- und Modusbedienung. Der Strompreis-Optimierer zeigt Preisprognosen und geplante Einsatzzeiten; Zyklen lassen sich mit Bedarf und Zeitraum starten sowie nach Rückfrage abbrechen. Logikvorgaben bleiben fest. Stabile Updatequelle bleibt 0.21.0.
