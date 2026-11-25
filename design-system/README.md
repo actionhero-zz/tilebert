@@ -12,7 +12,7 @@ tilebert ist eine Loxone-Visualisierung für Wandpanels ab 480 × 480 px (ein Lo
 ## Grundsätze
 
 - **Einheitliches Seitenverhältnis je Gerät:** Alle Rasterzellen eines Bildschirms haben dieselbe Form (2×1 = doppelt so breit, 2×2 = vier Zellen inkl. Fuge). Auf Panels ergibt sich das Verhältnis aus der Karte (480×480: etwa 1,2 : 1, die Zellen füllen die Karte ohne Seitenrand), auf dem Handy sind die Zellen quadratisch und es wird senkrecht gescrollt.
-- **480 × 480 muss immer funktionieren.** Das Grundraster ist 3 × 3 Zellen à `cell` (160 px). Tablets (iPad mini, 7″) bekommen Anpassungen nur im gezoomten Modus (`sqfit`/`sqbig`), nie auf Kosten von 480 × 480.
+- **480 × 480 muss immer funktionieren.** Das Grundraster ist 3 × 3 Zellen à `cell` (160 px). iPads nutzen automatisch die verfügbare Browserfläche ohne globalen Zoom; vorhandene Rasterzahl, Widget-Belegung und Themes bleiben erhalten. Keine iPad-Profile oder zusätzlichen Widget-Größen im Editor. Schmale Split-View-Fenster nutzen das Handy-Layout. Andere Tablets behalten die bestehende Skalierung (`sqfit`/`sqbig`). Anpassungen gehen nie auf Kosten von 480 × 480.
 - **Hardwareunabhängig.** Keine Gerätegesten, kein Hover als einzige Bedienung, keine Schatten im Panel.
 - **Farben kommen aus dem Theme.** Nie Literalfarben in Komponenten: immer `tile`, `ink`, `ink-2`, `face-*`, `dot-*`, `on`, `good`, `crit`. Ein Nutzer kann jede Farbe in Config → Aussehen → Design umstellen; neue Elemente müssen das mitmachen.
 - **Neue Kacheln und Widgets** übernehmen Schrift, Größen, Farben, Radius und Innenabstand der bestehenden Kacheln (`r-l`, `space-tile`, `tile-name`, `room-label`).

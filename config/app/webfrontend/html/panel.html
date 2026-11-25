@@ -2350,6 +2350,24 @@
   .spotask h1{margin:0;}
   .spotask p{font-size:15px;margin:0;}
 
+  /* iPad: bestehende Raster fuellen die echte Flaeche, ohne globalen Zoom.
+     Keine eigenen Profile/Widget-Masse; Typografie und Tippflaechen bleiben erhalten. */
+  html.adaptive .screen,html.adaptive .screen.split,html.adaptive .screen.fill{
+    width:100vw;height:100vh;max-width:none;max-height:none;box-sizing:border-box;
+    padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);}
+  @supports(height:100dvh){ html.adaptive .screen,html.adaptive .screen.split,html.adaptive .screen.fill{height:100dvh;} }
+  html.adaptive .screen>.tabs{height:64px;}
+  html.adaptive .screen>.tabs .tab,html.adaptive .screen>.tabs .tabback{height:64px;}
+  html.adaptive .screen>.tabs .tab{flex-basis:80px;}
+  html.adaptive .screen>.tabs .tab .tlbl{display:block;font-size:11px;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  html.adaptive .screen>.tabs .tab::after{display:none;}
+  html.adaptive .screen>.sv-st{display:flex;position:absolute;left:16px;right:16px;
+    bottom:calc(12px + env(safe-area-inset-bottom,0px));height:52px;z-index:35;}
+  html.adaptive.adaptive-st .screen{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px));}
+  html.adaptive .saver.layout .sv-grid{top:calc(82px + env(safe-area-inset-top,0px));
+    bottom:calc(12px + env(safe-area-inset-bottom,0px));}
+  html.adaptive.adaptive-st .saver.layout .sv-grid{bottom:calc(76px + env(safe-area-inset-bottom,0px));}
+  html.adaptive .saver.layout .sv-bar{top:calc(8px + env(safe-area-inset-top,0px));height:64px;}
 </style>
 </head>
 <body>
@@ -4848,10 +4866,24 @@ let uiScaleCfg='off', uiScaleEff=0;
 function scaleCfg(v){ return (v==='auto' || (typeof v==='number' && v>0)) ? v : 'off'; }
 // Der Kasten behaelt dabei sein Seitenverhaeltnis (quadratische Kacheln); was
 // auf iPad (3:2) oder 16:10-Tablets uebrig bleibt, fuellt der Hintergrund.
+// Desktop-Safari auf iPad meldet sich als Mac; Touch trennt ihn vom Mac.
+// Schmale Split-View-Fenster nutzen weiterhin das vorhandene Handy-Layout.
+function adaptiveTablet(){ return !isPhone() && (DEV_MODEL==='ipad' || /iPad/.test(navigator.userAgent)
+  || (/Mac/.test(navigator.platform) && navigator.maxTouchPoints>1)); }
 function applyScale(){
   const s=document.querySelector('.screen'); if(!s) return;
   s.style.width=''; s.style.height=''; s.style.maxWidth=''; s.style.maxHeight='';
   document.documentElement.classList.remove('sqfit','sqbig','sqst');   // natuerliche Groesse messen
+  const adaptive=adaptiveTablet(), root=document.documentElement, st=el('svSt'), bar=el('svBar');
+  root.classList.toggle('adaptive', adaptive);
+  root.classList.toggle('adaptive-st', adaptive && !!st?.children.length);
+  if(adaptive){
+    uiScaleEff=1; s.style.setProperty('--ui-scale','1'); root.classList.remove('scaled');
+    if(st && st.parentNode!==s) s.appendChild(st);
+    return;
+  }
+  // Nach schmaler Split View oder Wechsel des Geraetetyps wieder normale Statusleiste.
+  if(st && bar && st.parentNode===s) bar.insertBefore(st,bar.firstChild);
   const w=s.offsetWidth, h=s.offsetHeight;          // Layout-Groesse, vom transform unberuehrt
   const passt=(w&&h) ? Math.min(innerWidth/w, innerHeight/h) : 1;
   let k=1;
@@ -4916,9 +4948,15 @@ window.addEventListener('resize',()=>{
   // kippt (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt 2x2 statt in der
   // Startmessung 4x2 haengenzubleiben.
   const _ph=document.documentElement.classList.contains('phone');
-  if(applyPhone()!==_ph){ if(view) render(); renderSaverGrid(); }
-  else if(view && !el('grid').classList.contains('scheme')
-     && (window.innerWidth > window.innerHeight) !== _lastWide) render();
+  const phoneChanged=applyPhone()!==_ph;
+  if(view?.blocks){
+    // Nur Geometrie: kein innerHTML-Neuaufbau, keine verlorenen Eingaben/Streams.
+    if(phoneChanged) renderTabs();
+    el('grid').classList.toggle('wide',el('grid').clientWidth>700);
+    paintCharts(el('grid'),view.blocks);
+  } else if(view && view.layout!=='scheme' && (phoneChanged ||
+     (window.innerWidth > window.innerHeight) !== _lastWide)) render();
+  if(phoneChanged) renderSaverGrid();
   updateScrollInd();
   // Grosse Werte an die neue Breite anpassen (Kiosk meldet die echte Groesse oft spaet)
   if(el('grid').classList.contains('panel')) fitBig(el('grid'));
@@ -5837,7 +5875,7 @@ let _svStPrev={};
 function svStRender(){
   const host=el('svSt'); if(!host) return;
   const had=host.children.length>0;
-  queueMicrotask(()=>{ if((host.children.length>0)!==had && document.documentElement.classList.contains('sqfit')) applyScale(); });
+  queueMicrotask(()=>{ if((host.children.length>0)!==had && (document.documentElement.classList.contains('sqfit') || document.documentElement.classList.contains('adaptive'))) applyScale(); });
   const b=saverData&&saverData.bar, chips=(b&&b.chips)||[];
   // Nur Symbole: Anzahl (z.B. offene Fenster) als Plakette oben rechts wie bei
   // Mail-Apps; reine Zustaende (scharf, ausgeloest ...) nur ueber die Symbolfarbe.

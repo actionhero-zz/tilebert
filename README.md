@@ -29,6 +29,8 @@ installierten Original-LoxPanel-Version**, ohne Kollision:
 
 ## Eigene Funktionen dieses Forks
 
+- **Adaptives iPad-Layout (0.21.4)** — iPads nutzen automatisch die verfügbare Browserfläche ohne pauschalen Zoom. Vorhandene Raster, Widgets und Themes bleiben erhalten; keine zusätzlichen Profile oder Einstellungen im Grid-Editor. Detailansichten und ungesendete Eingaben bleiben bei Größenänderungen erhalten. Wandpanels behalten ihre bisherige Darstellung. Stabiler Kanal bleibt 0.21.0.
+
 - **Kamera-Ladeplatzhalter (0.21.3)** — Beim Kamerawechsel überbrückt ein statischer Skeleton in Theme-Farben die Ladezeit bis zum ersten Bild. Ohne zusätzliche Timer, Animationen oder Streams; Kameratasten bleiben bedienbar. Die Installationsmeldung zeigt den IP-Platzhalter wieder vollständig. Stabiler Kanal bleibt 0.21.0.
 
 - **Strompreis-Seite auf kleinen Panels (0.21.2)** — Die Prognose öffnet über den Diagrammknopf im Kartenkopf; Preis und Zyklusbedienung passen ohne Scrollen auf 480 × 480 und 960 × 480. Lesbare Eingabefelder, Aktionspillen und Abbruchdialog folgen dem Designsystem. Behebt die Darstellungsfehler der Vorabversion 0.21.1; stabiler Kanal bleibt 0.21.0.
